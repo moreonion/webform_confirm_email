@@ -1,0 +1,18 @@
+=========
+Changelog
+=========
+
+:$Id$
+:Author: Robin Millette <robin@millette.info>
+:Date: 2010/03/27
+
+Webform confirm email address 6.x-1.0-beta1
+===========================================
+2010-03-26
+----------
+Added project to the repo, rough but works for me.
+Added french translation file.
+
+2010-03-27
+----------
+Added README.txt documentation file and CHANGELOG.txt.
