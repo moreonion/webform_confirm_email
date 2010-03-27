@@ -1,0 +1,226 @@
+<?php
+/**
+ * @file
+ * Add email confirmation rules to webforms used as letter campaigns
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * @param $form
+ * @param $form_state
+ */
+function webform_confirm_email_form_webform_component_edit_form_alter(&$form, &$form_state) {
+  if ('email' !== $form['type']['#value']) return;
+
+  $form['advanced']['must_confirm'] = array(
+      '#type' => 'checkbox'
+    , '#title' => t('Must confirm this email address')
+    , '#default_value' => (int)$form['cid']['#value'] === _webform_confirm_email_required($form['nid']['#value'])
+    , '#description' => t('The user must confirm his email address before this form gets sent. For use in email campaigns. Checking this will replace the last selected email address requiring confirmation. In other words, you can only specify a single email address for confirmation per form.')
+    , '#weight' => 3
+    , '#access' => true
+  );
+
+  $form['#submit'][] = '_webform_confirm_email_form_submit';
+}
+
+/**
+ * Does the webform require email address confirmation?
+ * @param $nid
+ * @return
+ *   component id of email address confirmation or false if there is none
+ */
+function _webform_confirm_email_required($nid) {
+    return _webform_confirm_email_required_set($nid, null);
+}
+
+/**
+ * Make the webform require email address confirmation.
+ * @param $nid
+ * @param $cid
+ */
+function _webform_confirm_email_required_set($nid, $cid) {
+  static $form_nids = false;
+
+  if (!$form_nids) {
+    $form_nids = unserialize(variable_get('webform_confirm_email_required', 'a:0:{}'));
+  }
+
+  if (is_null($cid)) {
+    return isset($form_nids[$nid]) ? $form_nids[$nid] : false;
+  }
+
+  if ($cid) {
+    $form_nids[$nid] = $cid;
+  } else {
+    unset($form_nids[$nid]);
+  }
+  variable_set('webform_confirm_email_required', serialize($form_nids));
+}
+
+/**
+ * Checks if this webform necessitates email address confirmation.
+ *
+ * @param $form
+ * @param $form_state
+ */
+function _webform_confirm_email_form_submit($form, &$form_state) {
+  if ($form_state['values']['must_confirm']) {
+    _webform_confirm_email_required_set((int)$form['nid']['#value'], (int)$form_state['values']['cid']);
+  } else {
+    _webform_confirm_email_required_set((int)$form['nid']['#value'], false);
+  }
+}
+
+/**
+ * Takes email of the form bob <bob@example.com> and returns bob@example.com
+ * If only supplied bob@example.com it returns that
+ *
+ * @param $email
+ * @return
+ *   Plain email address (removing name and <>)
+ */
+function _webform_confirm_email_strip_name($email) {
+  if ('>' !== substr($email, -1)) return $email;
+  list(, $email) = explode(' <', $email, 2);
+  return substr($email, 0, -1);
+}
+
+/**
+ * Get submission ID given
+ *
+ * @param $nid
+ * @param $from
+ * @param $cid
+ * @return
+ *   Array containing submission ID and timestamp or false on error
+ */
+function _webform_confirm_email_get_sid($nid, $from, $cid) {
+  // get all submissions for this node
+  $submissions = webform_get_submissions($nid, array(array('field' => 'submitted', 'sort' => 'desc')));
+  $from = _webform_confirm_email_strip_name($from);
+  // adding sentinel (flag) to know if we reached the end without finding
+  $submissions['flag']->data[$cid] = $from;
+  foreach ($submissions as $sid => $submission) {
+    if ($from === $submission->data[$cid]['value'][0]) {
+      $timestamp = $submission->submitted;
+      break;
+    }
+  }
+
+  // not found, bailing out
+  if ('flag' === $sid) {
+    return false;
+  }
+
+  return array($sid, $timestamp);
+}
+
+/**
+ * Implementation of hook_menu().
+ *
+ * @return
+ *   Menu structure
+ */
+function webform_confirm_email_menu() {
+  $items = array();
+
+  $items['node/%/webform_confirm_email/%/%'] = array(
+    'title' => 'Confirming email address to send letter',
+    'page callback' => '_webform_confirm_email',
+    'page arguments' => array(1, 3, 4),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Verify that the correct user is confirming his email address using cryptographic signature.
+ *
+ * @param $nid
+ * @param $sid
+ * @param $hmac
+ * @return
+ *   Text to say if confirmation was valid or not.
+ */
+function _webform_confirm_email($nid, $sid, $hmac) {
+  if (hash_hmac('md5', $sid, drupal_get_private_key()) !== $hmac) {
+    return t('oups');
+  }
+
+  // email address confirmed
+  // time to send the actual letter
+  module_load_include('inc', 'webform', 'webform_submissions');
+  $submission = webform_get_submission($nid, $sid);
+
+  // get the prepared mail we stored when webform_confirm_email_mail_alter()
+  // was called and now send it.
+  $result = db_query('SELECT message from {webform_confirm_email} WHERE sid = %d', $sid);
+  $object = db_fetch_object($result);
+  $message = unserialize($object->message);
+  $message['body'] = is_array($message['body']) ? drupal_wrap_mail(implode("\n\n", $message['body'])) : drupal_wrap_mail($message['body']);
+  drupal_mail_send($message);
+  return t('Thanks!');
+}
+
+/**
+ * Store the message we hijacked when we sent confirmation email instead.
+ *
+ * @param $message
+ * @return
+ *   Valid URL containing node ID, submission ID and cryptographic signature
+ *   or false if no confirmation is necessary
+ */
+function _webform_confirm_email_store_message($message) {
+  $nid = arg(1);
+  if (!($cid = _webform_confirm_email_required($nid))) return false;
+  $object = new stdClass;
+  $object->message = $message;
+  list($object->sid, $timestamp) = _webform_confirm_email_get_sid($nid, $message['from'], $cid);
+  $object->submitted = gmdate('Y-m-d H:i:s', $timestamp);
+  $object->hmac = hash_hmac('md5', $object->sid, drupal_get_private_key());
+  drupal_write_record('webform_confirm_email', $object);
+  return url("node/$nid/webform_confirm_email/{$object->sid}/{$object->hmac}", array('absolute' => true));
+}
+
+/**
+ * Implementation of hook_mail_alter().
+ *
+ * @param $message
+ */
+function webform_confirm_email_mail_alter(&$message) {
+  $confirm_url = _webform_confirm_email_store_message($message);
+  if (!$confirm_url) return;
+  // rewrite message to get email address confirmation first
+  $to = $message['to'];
+  $message['to'] = $message['from'];
+  $message['from'] = variable_get('site_mail', null);
+  $message['subject'] = t('Confirmation email');
+  $message['body'][0] = t("You must confirm this is really your email address to send a letter to !to.", array('!to' => $to));
+  $message['body'][1] = t("Visit !confirm_url to confirm it.", array('!confirm_url' => $confirm_url));
+//  $message['params']['subject'] = $message['subject'];
+//  $message['params']['message'] = $message['body'][0];
+}
+
+/**
+ * Provide online user help.
+ *
+ * @param $path
+ * @param $arg
+ * @return
+ *   Help text
+ */
+function webform_confirm_email_help($path, $arg) {
+  switch ($path) {
+      case 'admin/settings/webform-confirm-email':
+          return '<p>'. t('Save & Edit adds a "Save and edit" button to the node add and node configure forms. The module also provides options to modify the way the "Publish" feature works when using Save & Edit. If the modifications are enabled to the Publish feature, when a node is unpublished, it will also create a "Publish" button that will obviously Save & Publish a node that was previously marked as Unpublished.') .'</p>';
+    case 'admin/help#webform_confirm_email':
+      return '<p>'. t('Save & Edit adds a "Save and edit" button to the node add and node configure forms. The module also provides options to modify the way the "Publish" feature works when using Save & Edit. If the modifications are enabled to the Publish feature, when a node is unpublished, it will also create a "Publish" button that will obviously Save & Publish a node that was previously marked as Unpublished.') .'</p>';
+    default:
+      return '';
+  }
+}
+

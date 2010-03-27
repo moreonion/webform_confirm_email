@@ -1,0 +1,61 @@
+<?php
+/**
+ * @file
+ * webform_confirm_email installation file
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function webform_confirm_email_install() {
+  drupal_install_schema('webform_confirm_email');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function webform_confirm_email_uninstall() {
+  drupal_uninstall_schema('webform_confirm_email');
+  variable_del('webform_confirm_email_required');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function webform_confirm_email_schema() {
+  $schema = array();
+
+  $schema['webform_confirm_email'] = array(
+    'description' => 'Table for storing {webform_submissions} waiting for email address confirmation.',
+    'fields' => array(
+      'sid' => array(
+        'type' => 'int',
+        'description' => '{webform_submissions}.sid submission ID',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'hmac' => array(
+        'type' => 'varchar',
+        'description' => 'Encrypted signature',
+        'not null' => TRUE,
+        'length' => 255,
+      ),
+      'message' => array(
+        'type' => 'varchar',
+        'description' => 'Serialized message array',
+        'not null' => TRUE,
+        'serialize' => TRUE,
+        'length' => 65535,
+      ),
+      'submitted' => array(
+        'type' => 'datetime',
+        'description' => 'Submission date and time, converted from {webform_submissions}.submitted timestamp ',
+        'not null' => TRUE,
+      )
+    ),
+   'primary key' => array('sid')
+  );
+
+  return $schema;
+}
+
