@@ -1,4 +1,6 @@
 <?php
+// $Id$
+
 /**
  * @file
  * Add email confirmation rules to webforms used as letter campaigns

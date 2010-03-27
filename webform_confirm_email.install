@@ -1,4 +1,6 @@
 <?php
+// $Id$
+
 /**
  * @file
  * webform_confirm_email installation file
