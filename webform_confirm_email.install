@@ -10,7 +10,10 @@
  * Implementation of hook_install().
  */
 function webform_confirm_email_install() {
-  drupal_install_schema('webform_confirm_email');
+  list($ok) = drupal_install_schema('webform_confirm_email');
+  if ($ok) {
+    drupal_set_message(st('Thank you for installing Webform confirm email address. You\'ll find the only setting in the Advanced options of an email component of a Webform.'));
+  }
 }
 
 /**
