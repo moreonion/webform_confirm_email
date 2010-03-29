@@ -3,57 +3,83 @@
 # French translation of Drupal (general)
 # Copyright 2010 <robin@millette.info>
 # Generated from files:
-#  webform_confirm_email.module: n/a
+#  webform_confirm_email.module,v 1.2 2010/03/27 02:55:09 millette
 #  webform_confirm_email.info: n/a
 #
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2010-03-26 11:08-0400\n"
-"PO-Revision-Date: 2010-03-26 11:08-0400\n"
-"Last-Translator: Robin Millette <robin@millette.info>\n"
-"Language-Team: drupalfr.org <traduction@drupalfr.org>\n"
+"POT-Creation-Date: 2010-03-28 15:51-0400\n"
+"PO-Revision-Date: 2010-03-28 15:50-0400\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: French <EMAIL@ADDRESS>\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=utf-8\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n>1);\n"
 
-#: webform_confirm_email.install:15
-msgid "Thank you for installing Webform confirm email address. You\'ll find the only setting in the Advanced options of an email component of a Webform."
-msgstr "Merci d'avoir installé Webform confirm email address. Vous allez trouver la seule option dans Options avancées d'un composant email d'un formulaire Webform."
-
-#: webform_confirm_email.module:18
+#: webform_confirm_email.module:58
 msgid "Must confirm this email address"
 msgstr "Doit confirmer cette adresse email"
 
-#: webform_confirm_email.module:20
-msgid "The user must confirm his email address before this form gets sent. For use in email campaigns. Checking this will replace the last selected email address requiring confirmation. In other words, you can only specify a single email address for confirmation per form."
-msgstr "L'utilisateur doit confirmer son adresse email avant que ce formulaire ne soit envoyé. Pour utiliser dans les campagnes d'email. Cocher ici va remplacer la dernière adresse email sélectionnée demandant confirmation. En d'autres termes, vous ne pouvez spécifier qu'une seule adresse email à confirmer par formulaire."
+#: webform_confirm_email.module:60
+msgid ""
+"The user must confirm his email address before this form gets sent. For use "
+"in email campaigns. Checking this will replace the last selected email "
+"address requiring confirmation. In other words, you can only specify a "
+"single email address for confirmation per form."
+msgstr ""
+"L'utilisateur doit confirmer son adresse email avant que ce formulaire ne "
+"soit envoyé. Pour utiliser dans les campagnes d'email. Cocher ici va "
+"remplacer la dernière adresse email sélectionnée demandant confirmation. En "
+"d'autres termes, vous ne pouvez spécifier qu'une seule adresse email à "
+"confirmer par formulaire."
 
-#: webform_confirm_email.module:130
-msgid "Confirming email address to send letter"
-msgstr "Confirmation de l'adresse email pour envoyer la lettre"
+#: webform_confirm_email.module:105
+msgid ""
+"You should receive an email with a link to confirm your email address. You "
+"must follow that link in order for your letter to be sent."
+msgstr "Vous devriez recevoir un email contenant un lien pour confirmer votre adresse email. Vous devez suivre ce lien pour que votre lettre soit envoyée."
 
-#: webform_confirm_email.module:151
-msgid "oups"
-msgstr "oups"
+#: webform_confirm_email.module:202
+msgid ""
+"Looks like you tried to confirm an email address to complete a form "
+"submission but you provided the wrong signature. Check the email you received "
+"again and make sure you copy the whole URL."
+msgstr "On dirait que vous avez tenté de confirmer une adresse email pour compléter l'envoi d'une lettre mais vous avez soumis la mauvaise signature. Vérifiez le email que vous avez reçu et assurez-vous de copier l'URL complet."
 
-#: webform_confirm_email.module:166
-msgid "Thanks!"
-msgstr "Merci!"
+#: webform_confirm_email.module:216
+msgid ""
+"Thank you. We sent the letter you completed now that we have confirmed your "
+"email address."
+msgstr "Merci. Nous avons envoyé votre lettre maintenant que vous avez confirmé votre adresse email."
 
-#: webform_confirm_email.module:201
+#: webform_confirm_email.module:253
 msgid "Confirmation email"
 msgstr "Email de confirmation"
 
-#: webform_confirm_email.module:202
-msgid "You must confirm this is really your email address to send a letter to !to."
-msgstr "Vous devez confirmer que ceci est bien votre adresse email pour envoyer la lettre à !to."
+#: webform_confirm_email.module:254
+msgid ""
+"You must confirm this is really your email address to send a letter to !to."
+msgstr ""
+"Vous devez confirmer que ceci est bien votre adresse email pour envoyer la "
+"lettre à !to."
 
-#: webform_confirm_email.module:203
+#: webform_confirm_email.module:255
 msgid "Visit !confirm_url to confirm it."
 msgstr "Visitez !confirm_url pour la confirmer."
+
+#: webform_confirm_email.module:289
+msgid ""
+"This addon module for Webform let's you specify which, if any, email "
+"addresses should be confirmed by their owner before a webform is sent. "
+"Mostly used for email campaigns."
+msgstr "Ce module complémentaire à Webform vous permet de spécifier quelle adresse email, si nécessaire, doit être confirmée par son propriétaire avant d'envoyer un formulaire web. Surtout utile pour les campagnes d'email."
+
+#: webform_confirm_email.module:178
+msgid "Confirming email address to send letter"
+msgstr "Confirmation de l'adresse email pour envoyer la lettre"
 
 #: webform_confirm_email.info:0
 msgid "Webform Confirm Email Address"
@@ -61,5 +87,7 @@ msgstr "Confirmation d'adresse email pour Webform"
 
 #: webform_confirm_email.info:0
 msgid "Confirm email addresses for webforms used as letter campaigns."
-msgstr "Confirme les adresses emails dans les formulaires utilisés pour les campagnes d'email."
+msgstr ""
+"Confirme les adresses emails dans les formulaires utilisés pour les "
+"campagnes d'email."
 

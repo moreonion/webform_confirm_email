@@ -16,3 +16,8 @@ Added french translation file.
 2010-03-27
 ----------
 Added README.txt documentation file and CHANGELOG.txt.
+
+2010-03-29
+----------
+Mise à jour des traductions.
+

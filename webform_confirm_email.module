@@ -199,7 +199,7 @@ function webform_confirm_email_menu() {
  */
 function _webform_confirm_email($nid, $sid, $hmac) {
   if (hash_hmac('md5', $sid, drupal_get_private_key()) !== $hmac)
-    return t('Looks like you tried to confirm an email address to complete a form submission but you provided the wrong key. Check the email you received again and make sure you copy the whole URL.');
+    return t('Looks like you tried to confirm an email address to complete a form submission but you provided the wrong signature. Check the email you received again and make sure you copy the whole URL.');
 
   // email address confirmed
   // time to send the actual letter

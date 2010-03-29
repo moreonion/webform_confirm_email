@@ -1,0 +1,69 @@
+# $Id$
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  webform_confirm_email.module,v 1.2 2010/03/27 02:55:09 millette
+#  webform_confirm_email.info: n/a
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2010-03-28 15:51-0400\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: webform_confirm_email.module:58
+msgid "Must confirm this email address"
+msgstr ""
+
+#: webform_confirm_email.module:60
+msgid "The user must confirm his email address before this form gets sent. For use in email campaigns. Checking this will replace the last selected email address requiring confirmation. In other words, you can only specify a single email address for confirmation per form."
+msgstr ""
+
+#: webform_confirm_email.module:105
+msgid "You should receive an email with a link to confirm your email address. You must follow that link in order for your letter to be sent."
+msgstr ""
+
+#: webform_confirm_email.module:202
+msgid "Looks like you tried to confirm an email address to complete a form submission but you provided the wrong key. Check the email you received again and make sure you copy the whole URL."
+msgstr ""
+
+#: webform_confirm_email.module:216
+msgid "Thank you. We sent the letter you completed now that we have confirmed your email address."
+msgstr ""
+
+#: webform_confirm_email.module:253
+msgid "Confirmation email"
+msgstr ""
+
+#: webform_confirm_email.module:254
+msgid "You must confirm this is really your email address to send a letter to !to."
+msgstr ""
+
+#: webform_confirm_email.module:255
+msgid "Visit !confirm_url to confirm it."
+msgstr ""
+
+#: webform_confirm_email.module:289
+msgid "This addon module for Webform let's you specify which, if any, email addresses should be confirmed by their owner before a webform is sent. Mostly used for email campaigns."
+msgstr ""
+
+#: webform_confirm_email.module:178
+msgid "Confirming email address to send letter"
+msgstr ""
+
+#: webform_confirm_email.info:0
+msgid "Webform Confirm Email Address"
+msgstr ""
+
+#: webform_confirm_email.info:0
+msgid "Confirm email addresses for webforms used as letter campaigns."
+msgstr ""
+
