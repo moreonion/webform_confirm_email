@@ -103,7 +103,7 @@ function _webform_confirm_email_get_sid($nid, $from, $cid) {
   $submissions = webform_get_submissions($nid, array(array('field' => 'submitted', 'sort' => 'desc')));
   $from = _webform_confirm_email_strip_name($from);
   // adding sentinel (flag) to know if we reached the end without finding
-  $submissions['flag']->data[$cid] = $from;
+  $submissions['flag']->data[$cid]['value'][0] = $from;
   foreach ($submissions as $sid => $submission) {
     if ($from === $submission->data[$cid]['value'][0]) {
       $timestamp = $submission->submitted;
