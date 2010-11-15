@@ -1,7 +1,7 @@
 # $Id$
 msgid ""
 msgstr ""
-"Project-Id-Version: 6.3\n"
+"Project-Id-Version: 6.3.x\n"
 "POT-Creation-Date: 2010-10-28 05:38-0400\n"
 "PO-Revision-Date: 2010-10-28 05:38-0400\n"
 "Last-Translator: NAME <robin@millette.info>\n"
@@ -11,41 +11,39 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n!=1);\n"
 msgid "@confirm_url - URL needed to confirm email address."
-msgstr "@confirm_url - URL nécessaire pour confirmer une adresse email."
+msgstr ""
 
 #: /fr/node/3/webform/emails/3
 msgid "Message type"
-msgstr "Type de message"
+msgstr ""
 
 #: /fr/node/3/webform/emails/3
 msgid "Should this email always be sent, only after confirmation, etc."
 msgstr ""
-"Se message devrait-il être envoyé dans tous les cas, pour demander "
-"une confirmation ou seulement après confirmation?"
 
 #: /fr/node/3/webform/emails/3
 msgid "Always"
-msgstr "Toujours"
+msgstr ""
 
 #: /fr/node/3/webform/emails/3
 msgid "Confirmation"
-msgstr "Confirmation"
+msgstr ""
 
 #: /fr/node/3/webform/emails/3
 msgid "Conditional"
-msgstr "Conditionnel"
+msgstr ""
 
 #: /admin/build/modules
 msgid "Webform addon to confirm submitters' email."
-msgstr "Module pour Webform pour confirmer les emails."
+msgstr ""
 
 #: /node/3/confirm_email/55/717...
 msgid "Submit email confirmation"
-msgstr "Confirmez votre email"
+msgstr ""
 
 #: /node/3/confirm_email/55/717...
 msgid "Confirm your email address?"
-msgstr "Confirmez votre adresse email?"
+msgstr ""
 
 #: /node/3/confirm_email/55/717...
 msgid ""
@@ -54,31 +52,24 @@ msgid ""
 "report the abuse of your email address or ignore this form knowing no "
 "email messages were sent from our site in your name."
 msgstr ""
-"Vous êtes ici pour confirmer votre adresse email afin de compléter "
-"un formulaire. Vous pouvez confirmer que c'était bien vous, cliquez "
-"non pour rapporter un abus de votre adresse email ou ignorer ce "
-"message sachant qu'aucun email n'a été envoyé de notre site en "
-"votre nom."
 
 #: /node/3/confirm_email/55/717...
 msgid "Yes, that was me."
-msgstr "Oui, c'était moi"
+msgstr ""
 
 #: /node/3/confirm_email/55/717...
 msgid "No, someone is using my email address without my knowledge."
-msgstr "Non, quelqu'un utilise mon adresse email sans mon consentement."
+msgstr ""
 
 #: /node/3/confirm_email/55/717...
 msgid "Invalid code."
-msgstr "Code invalide."
+msgstr ""
 
 #: /node/3/report_abuse/56/759...
 msgid "Report abuse regarding email confirmation"
-msgstr "Rapporter un problème d'abus concernant une confirmation d'email"
+msgstr ""
 
 #: /node/3/report_abuse/56/759...
 msgid "Sorry, not implemented yet. Try <a href=\"/contact\">contact</a>."
 msgstr ""
-"Désolé, pas encore implémenté. Essayez <a "
-"href=\"/contact\">contact</a>."
 

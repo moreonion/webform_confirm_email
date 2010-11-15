@@ -1,71 +1,59 @@
-=======
-Read me
-=======
+How to use
+==========
+*Depends on Webform 6.x-3.x. It won't work with the 6.x-2.x or older. Please skip to the end of this document if you are upgrading from a previous version of Webform_confirm_email.*
 
-:Author: Robin Millette <robin@millette.info>
-:Date: 2010/03/27
-:$Id$
+Webform_confirm_email is a simple addon module for Webform. By default, Webform allows a form creator to define email messages to be sent under some circumstances. Webform_confirm_email lets you specify if certain messages should only be sent after another email address has been confirmed.
 
-Summary
-=======
-`Webform confirm email address`_ is used in combination with Webform_ as a `letter campaign`_ engine. Install and configure this module if you need to verify the email addresses your users provide before sending out letters. It prevents people from pretending they are someone else.
+Example: Letter writing campaign
+================================
+Given a webform with these 5 components:
 
-TODO
-====
-* Povide better feedback to the user.
-* Use a template for the confirmation email.
-* Cleanup unconfirmed webforms.
+* From email
+* From name
+* To email
+* Hard-coded email text
+* Optional email text
 
-Requirements
-============
-I wrote it for Drupal 6. It depends on the Webform_ 6.x-2.x module.
+The hard-coded email text would be the main body of the letter. The optional email text would suggest more text but would be editable by the user.
 
-Installation
-============
-Install as usual, see http://drupal.org/node/70151 for further information.
+From email and name are the user's. To email is the destination address where the letter is sent. The letter will appear to be sent from the user's name and email, but only after the user confirm it is in fact his email address.
+
+When a user submits a letter, he receives an email message containing a link he must follow to confirm he can at least read messages for the email he gave.
+
+When the user follows the confirmation link, he is asked (again) to confirm he is indeed completing the letter campaign process.
+
+Only when he clicks yes to confirm his email address will the letter actually be sent to destination, using the user's name and email as the source.
+
+The user can also click no to report abuse but that feature isn't complete yet. I'm open to suggestions.
+
 
 Configuration
 =============
-First, set up up a Webform as explained in `letter campaign`_ or using your own method. Next, find the email component of that form you want to use as the sender's email. In **Advanced settings**, check **Must confirm this email address**. You are done.
+You will only notice it is installed when visiting a Webform Emails tab. This is where Webform lets you specify messages to send. Webform_confirm_email adds 3 radio buttons for each defined message. Without it or by default, messages are always sent. Webform_confirm_email provides 2 new choices:
 
-Customization
-=============
-Nothing I can think of for now. Maybe I'll implement a template for the confirmation email if there is demand.
+* **Confirmation**
+* **Conditional**
 
-Troubleshooting
-===============
-See the `support issues`_ on the Drupal website.
+Check **Confirmation** if you want this message to be sent in all cases. Make sure its template includes the *%confirm_url* token. This turns into the URL a user needs to click to confirm he holds a given email address.
 
-FAQ
-===
-How does it work?
-  Quite frankly, I'm not really sure :) But seriously, the module intercepts the letter before it is sent with a *hook_mail_alter* and sends its own confirmation mail instead to the person listed as the source. That email contains a cryptographically signed link the user must follow to confirm his identity. Once the website gets that, the letter we intercepted gets sent.
+Check **Conditional** if you want a message to be sent only after an email address is confirmed. If you make a message **Conditional** make sure there is at least another message configured as a **Confirmation**, otherwise your **Conditional** message will never get sent.
 
-Why isn't this in Webform?
-  Dunno. I never asked the Webform_ maintainers if they were interested. Maybe it'll make its way there and this more will become obselete.
+Any **Confirmation** will send all **Conditional** messages.
 
-What was this tested with?
-  Drupal 6.16 and Webform 6.x-2.9. Let me know if you try it with other versions.
+Email message contents (templates) are configured as usual, through the Webform interface.
 
-Contact
-=======
-Current maintainer
-------------------
-Robin Millette (millette) - http://drupal.org/user/49105
+Updating / Installing
+=====================
+It doesn't handle updating from earlier versions. You must disable and uninstall webform_confirm_email completely (Drupal should remove its database tables) before proceeding. It's a good idea to completely remove the module folder after you uninstalled it.
 
-Sponsor
--------
-This module provided to you by la Ligue des Contribuables (du Québec) and Muniduweb.
+Untar the module and upload it to your site like any other module. Enable it. It should create a few database tables.
 
-Colophon
-========
-This document is written using the ReStructuredText markup. Go get Docutils_ if you'd like to see this document in a format such as HTML, LaTeX or PDF. You may also convert this file using my `Text filter web service`.
-
-.. _Webform: http://drupal.org/project/webform
-.. _`Webform confirm email address`: http://drupal.org/project/webform_confirm_email
-.. _Docutils: http://docutils.sourceforge.net/
-.. _`Text filter web service`: http://textfilters.appspot.com/
-.. _`letter campaign`: http://dharmatech.org/blog/creating_letter_editor_form_drupal/06/11/09
-.. _`support issues`: http://drupal.org/project/issues/webform_confirm_email?categories=support
-
+Todo
+====
+* Confirmation A or B for Conditional B
+* Confirmation C and B for Conditional B
+* Other configurations
+* Presets
+* Report abuse feature
+* ...
 
