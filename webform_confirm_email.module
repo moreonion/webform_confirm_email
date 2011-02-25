@@ -1,6 +1,5 @@
 <?php
 
-// $Id$
 
 // FIXME
 // test with email strings, not components (if that makes any sense)

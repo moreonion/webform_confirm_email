@@ -1,4 +1,3 @@
-; $Id$
 name = Webform Confirm Email
 description = Webform addon to confirm submitters' email.
 core = 6.x
