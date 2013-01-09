@@ -1,6 +1,6 @@
 How to use
 ==========
-*Depends on Webform 6.x-3.x. It won't work with the 6.x-2.x or older. Please skip to the end of this document if you are upgrading from a previous version of Webform_confirm_email.*
+*Depends on Webform 7.x-3.x. Please skip to the end of this document if you are upgrading from a previous version of Webform_confirm_email.*
 
 Webform_confirm_email is a simple addon module for Webform. By default, Webform allows a form creator to define email messages to be sent under some circumstances. Webform_confirm_email lets you specify if certain messages should only be sent after another email address has been confirmed.
 
