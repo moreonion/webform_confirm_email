@@ -10,6 +10,17 @@
  *
  */
 
+/**
+ * Implements hook_webform_submission_delete().
+ *
+ * Respond to a Webform submission being deleted - if a submission
+ * is deleted the hash for the confirmation URL can be deleted too
+ *
+ * @param $node
+ *   The Webform node on which this submission was made.
+ * @param $submission
+ *   The Webform submission that was just deleted from the database.
+ */
 function webform_confirm_email_webform_submission_delete($node, $submission) {
   db_query(
     'delete from {webform_confirm_email_code} where nid = %d and sid = %d',
@@ -44,6 +55,18 @@ function webform_confirm_email_get_email_info($message) {
   );
 }
 
+/**
+ * generate a hash for a new email submission, or get an existing hash
+ *
+ * @param $nid
+ *   node id of the submitted form
+ * @param $sid
+ *   submission id of the submitted form
+ * @param $email
+ *   email address of the submitter; if empty, it's assumed that the submission
+ *   has already happened and the webform_confirm_email_code table is searched
+ *   for a hash
+ */
 function webform_confirm_email_generate_key($nid, $sid, $email = null) {
   if (isset($email)) {
     return hash_hmac(
@@ -64,6 +87,16 @@ function webform_confirm_email_generate_key($nid, $sid, $email = null) {
 
 /**
  * Implementation of hook_mail_alter().
+ * When drupal sends an email this function checks whether there is an entry
+ * in the webform_confirm_email table that identifies the email as being a
+ * conditional or confirmational mail.
+ * If it's a confirmational mail a hash code is generated, an URL is generated
+ * out of the hash and the "%confirm_url" is replaced in the email by this generated
+ * confirmation URL.
+ * If it's a conditional email, the email is stopped from being send; This is because
+ * after a webform submission the webform module would send all emails that are
+ * registered for this form; but we want the conditional email to be send only when
+ * the user uses the confirmation link that is send to him/her in the confirmation email.
  *
  * @param $message
  */
@@ -114,6 +147,13 @@ function webform_confirm_email_mail_alter(&$message) {
   }
 }
 
+/**
+ * Form submit callback function of the confirmation form
+ * the user gets presented when he/she clicks on the confirmation URL
+ * that was sent to him/her with the confirmation email.
+ * It's main purpose is to send off the conditional email that was stopped
+ * in the webform_confirm_email_mail_alter function.
+ */
 function _webform_confirm_email_confirmed_form_submit($form, &$form_state) {
   $form_state['redirect'] = 'node';// somewhere else.....
   $nid = (int) $form['nid']['#value'];
@@ -161,6 +201,12 @@ function _webform_confirm_email_confirmed_form_submit($form, &$form_state) {
   }
 }
 
+/**
+ * This function builds the confirmation form that a user reaches
+ * when he/she followes the link provided in the confirmation email.
+ * The submit callback function, that is set here, will later take
+ * care of sending the conditional email.
+ */
 function webform_confirm_email_response_form($form_state, $nid, $sid, $code) {
   if (empty($code)) {
     return array('ha' => array(
@@ -199,6 +245,8 @@ function webform_confirm_email_response_form($form_state, $nid, $sid, $code) {
 
 /**
  * Implementation of hook_menu().
+ * The callback function is registered here to handle all page requests
+ * with confirmation hash codes in the URL
  */
 function webform_confirm_email_menu() {
   return array(
@@ -223,12 +271,24 @@ function webform_confirm_email_menu() {
   );
 }
 
+/**
+ * Report abuse callback function, currently not implemented
+ */
 function webform_confirm_email_report_abuse() {
   return t('Sorry, not implemented yet. Try <a href="/contact">contact</a>.');
   //FIXME
 }
 
-// capture when email component is deleted
+/**
+ * Implements hook_webform_component_delete().
+ *
+ * If a webform component is being deleted we check
+ * if this component is an email address field and if so
+ * we delete the confirmation emails
+ *
+ * @param $component
+ *   The Webform component being deleted.
+ */
 function webform_confirm_email_webform_component_delete($component) {
   $nid = (int) $component['nid'];
   $cid = (int) $component['cid'];
@@ -263,10 +323,27 @@ function webform_confirm_email_webform_component_delete($component) {
   }
 }
 
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * This adds a submit handler callback for the webform settings, so when
+ * webform email settings are changed (an webform email is deleted) we
+ * can react on this
+ */
 function webform_confirm_email_form_webform_email_delete_form_alter(&$form, &$form_state) {
   $form['#submit'][] = '_webform_confirm_email_email_delete';
 }
 
+/**
+ * This implements the submit handler callback for an webform
+ * email delete event
+ *
+ * @param $form
+ *   the form from which a webform email is deleted
+ *
+ * @param $form_state
+ *   the form_state of the form
+ */
 function _webform_confirm_email_email_delete($form, &$form_state) {
   $nid = (int) $form['email']['#value']['nid'];
   $eid = (int) $form['email']['#value']['eid'];
@@ -282,6 +359,12 @@ function _webform_confirm_email_email_delete($form, &$form_state) {
   }
 }
 
+/**
+ * Implements hook_form_FORM_ID_alter()
+ *
+ * This hook adds a radio button list titled "MESSAGE TYPE" to the webform
+ * "Edit e-mail settings" site
+ */
 function webform_confirm_email_form_webform_email_edit_form_alter(&$form, &$form_state) {
   $instructions = $form['template']['tokens']['#value'];
   $search = '<p>' . t(
@@ -329,6 +412,16 @@ function webform_confirm_email_form_webform_email_edit_form_alter(&$form, &$form
   $form['#submit'][] = '_webform_confirm_email_component_type_form_submit';
 }
 
+/**
+ * This implements the submit handler callback for an webform
+ * email settings edit event
+ *
+ * @param $form
+ *   the form for which webform email settings are changed
+ *
+ * @param $form_state
+ *   the form_state of the form
+ */
 function _webform_confirm_email_component_type_form_submit($form, &$form_state) {
   if (empty($form_state['values']['email_type'])) {
     return;
