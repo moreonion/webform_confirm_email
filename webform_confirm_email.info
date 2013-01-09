@@ -1,5 +1,6 @@
-name = Webform Confirm Email Address
-description = "Confirm email addresses for webforms used as letter campaigns."
+name = Webform Confirm Email
+description = Webform addon to confirm submitters' email.
 core = 6.x
-dependencies[] = webform
+package = Webform
+php = 5.0
 
