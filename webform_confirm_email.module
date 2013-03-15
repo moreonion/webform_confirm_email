@@ -225,7 +225,7 @@ function webform_confirm_email_response_form($form_state, $nid, $sid, $code) {
 
   $form = array(
     'nid' => array('#type' => 'value', '#value' => $nid->nid),
-    'sid' => array('#type' => 'value','#value' => $sid->sid),
+    'sid' => array('#type' => 'value', '#value' => $sid->sid),
     '#submit' => array('_webform_confirm_email_confirmed_form_submit')
   );
 
@@ -252,24 +252,74 @@ function webform_confirm_email_response_form($form_state, $nid, $sid, $code) {
 function webform_confirm_email_menu() {
   return array(
     'node/%webform_menu/confirm_email/%webform_menu_submission/%' => array(
-      'title' => 'Submit email confirmation',
-      'load arguments' => array(1),
-      'page callback' => 'drupal_get_form',
-      'page arguments' => array('webform_confirm_email_response_form', 1, 3, 4),
-      'access callback' => true,
+      'title'           => t('Submit email confirmation'),
+      'load arguments'  => array(1),
+      'page callback'   => 'drupal_get_form',
+      'page arguments'  => array('webform_confirm_email_response_form', 1, 3, 4),
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK,
+    ),
+    'node/%webform_menu/webform/confirmation_request/%webform_menu_email' => array(
+      'title'            => t('Edit confirmation request e-mail settings'),
+      'load arguments'   => array(1),
+      'page callback'    => 'webform_confirm_email_confirmation_request_edit',
+      'page arguments'   => array(1, 4),
+      'access callback'  => 'node_access',
+      'access arguments' => array('update', 1),
       'type' => MENU_CALLBACK,
     ),
     //FIXME
     //We're not doing anything helpful with this right now.
     'node/%webform_menu/report_abuse/%webform_menu_submission/%' => array(
-      'title' => t('Report abuse regarding email confirmation'),
-      'load arguments' => array(1),
-      'page callback' => 'webform_confirm_email_report_abuse',
-      'page arguments' => array(1, 3, 4),
-      'access callback' => true,
+      'title'           => t('Report abuse regarding email confirmation'),
+      'load arguments'  => array(1),
+      'page callback'   => 'webform_confirm_email_report_abuse',
+      'page arguments'  => array(1, 3, 4),
+      'access callback' => TRUE,
       'type' => MENU_CALLBACK,
     )
   );
+}
+
+function webform_confirm_email_confirmation_request_edit($node, $email = array()) {
+  include_once drupal_get_path('module', 'webform') . '/includes/webform.emails.inc';
+  $form_state = array();
+  $form = drupal_retrieve_form('webform_email_edit_form', $form_state, $node, $email);
+  drupal_prepare_form('webform_email_edit_form', $form, $form_state);
+  drupal_process_form('webform_email_edit_form', $form, $form_state);
+
+  $instructions = $form['template']['tokens']['#value'];
+  $search = '<p>' .
+    t('You may use special tokens in this field that will be replaced with dynamic values.') .
+    '</p>';
+
+  $confirmation_tokens = array(t('%confirm_url - URL needed to confirm email address.'));
+
+  $rep = $search . theme_item_list(
+    $confirmation_tokens,
+    t('Confirmation variables')
+  );
+  $form['template']['tokens']['#value'] = str_replace($search, $rep, $instructions);
+
+  $form['#submit'][] = '_webform_confirm_email_edit_confirmation_request_email_submit';
+
+
+  return drupal_render_form('webform_email_edit_form', $form);
+}
+
+function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$form_state) {
+
+  if (isset($form['eid']['#value']) == TRUE) {
+    $obj['eid']        = $form['eid']['#value'];
+    $obj['nid']        = $form['#node']->nid;
+    $obj['email_type'] = (int) 1;
+
+    drupal_write_record(
+      'webform_confirm_email',
+      $obj,
+      array('nid', 'eid', 'email_type')
+    );
+  }
 }
 
 /**
@@ -348,9 +398,12 @@ function webform_confirm_email_form_webform_email_delete_form_alter(&$form, &$fo
 function _webform_confirm_email_email_delete($form, &$form_state) {
   $nid = (int) $form['email']['#value']['nid'];
   $eid = (int) $form['email']['#value']['eid'];
-  if ($nid && $eid) {
+  if (   empty($nid) == FALSE
+      && empty($eid) == FALSE) {
     db_query(
-      'DELETE from {webform_confirm_email} WHERE nid = %d AND eid = %d',
+      'DELETE FROM {webform_confirm_email} ' .
+        'WHERE nid = %d ' .
+        'AND   eid = %d',
       $nid,
       $eid
     );
@@ -444,7 +497,7 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
 }
 
 function webform_confirm_email_theme_registry_alter(&$theme_registry) {
-  $theme_registry['webform_emails_form']['function'] = 'theme_webform_confirm_emails_form';
+  $theme_registry['webform_emails_form']['function']    = 'theme_webform_confirm_emails_form';
   $theme_registry['webform_email_add_form']['function'] = 'theme_webform_confirm_email_add_form';
 }
 
@@ -516,9 +569,9 @@ function theme_webform_confirm_email_add_form($form) {
   $email_type = $form['#array_parents'][0];
 
   // Add a default value to the custom e-mail textfield.
-  $form[$email_type . '_custom']['#attributes']['rel'] = t('email@example.com');
+  $form[$email_type . '_custom']['#attributes']['rel']   = t('email@example.com');
   $form[$email_type . '_custom']['#attributes']['class'] = 'webform-set-active webform-default-value';
-  $form[$email_type . '_option']['custom']['#title'] = $form[$email_type . '_option']['custom']['#title'] . ': ' . drupal_render($form[$email_type . '_custom']);
+  $form[$email_type . '_option']['custom']['#title']     = $form[$email_type . '_option']['custom']['#title'] . ': ' . drupal_render($form[$email_type . '_custom']);
 
   // Render the component value.
   $form[$email_type . '_component']['#attributes']['class'] = 'webform-set-active';
@@ -541,50 +594,7 @@ function theme_webform_confirm_email_add_form($form) {
  * "Edit e-mail settings" site
  */
 function webform_confirm_email_form_webform_email_edit_form_alter(&$form, &$form_state) {
-  $instructions = $form['template']['tokens']['#value'];
-  $search = '<p>' . t(
-    'You may use special tokens in this field that will be replaced with '.
-    'dynamic values.'
-  ) . '</p>';
-  $confirmation_tokens = array(
-    t(
-      '@confirm_url - URL needed to confirm email address.',
-      array('@confirm_url' => '%confirm_url')
-    )
-  );
-  $rep = $search . theme(
-    'item_list', $confirmation_tokens, t('Confirmation variables')
-  );
-  $form['template']['tokens']['#value'] = str_replace(
-    $search, $rep, $instructions
-  );
-  if (isset($form['eid']['#value'])) {
-    $nid = (int) $form['node']['#value']->nid;
-    $eid = (int) $form['eid']['#value'];
-    $result = db_query(
-      'SELECT email_type from {webform_confirm_email} '.
-        'WHERE nid = %d AND eid = %d',
-      $nid,
-      $eid
-    );
-    $object = db_fetch_object($result);
-    $email_type = isset($object->email_type) ? (int) $object->email_type : 0;
-  }
-  else {
-    $email_type = 0;
-  }
-  $form['email_type'] = array(
-    '#title' => t('Message type'),
-    '#type' => 'radios',
-    '#default_value' => $email_type,
-    '#description' => t(
-      'Should this email always be sent, only after confirmation, etc.'
-    ),
-    '#options' => array(
-      0 => t('Always'), 1 => t('Confirmation'), 2 => t('Conditional')
-    ),
-  );
-  $form['#submit'][] = '_webform_confirm_email_component_type_form_submit';
+  $form['#submit'][] = '_webform_confirm_email_edit_std_email_submit';
 }
 
 /**
@@ -597,26 +607,18 @@ function webform_confirm_email_form_webform_email_edit_form_alter(&$form, &$form
  * @param $form_state
  *   the form_state of the form
  */
-function _webform_confirm_email_component_type_form_submit($form, &$form_state) {
-  if (empty($form_state['values']['email_type'])) {
-    return;
-  }
-  $obj = array(
-    'nid' => (int) $form['node']['#value']->nid,
-    'email_type' => (int) $form_state['values']['email_type']
-  );
-  if (isset($form['eid']['#value'])) {
+function _webform_confirm_email_edit_std_email_submit($form, &$form_state) {
+
+  if (isset($form['eid']['#value']) == TRUE) {
     $obj['eid'] = $form['eid']['#value'];
-    drupal_write_record('webform_confirm_email', $obj, array('nid', 'eid'));
-  }
-  else {
-    $obj['eid'] = db_result(
-      db_query(
-        'SELECT MAX(eid) FROM {webform_emails} WHERE nid = %d',
-        $obj['nid']
-      )
+    $obj['nid'] = $form['#node']->nid;
+    $obj['email_type'] = (int) 0;
+
+    drupal_write_record(
+      'webform_confirm_email',
+      $obj,
+      array('nid', 'eid', 'email_type')
     );
-    drupal_write_record('webform_confirm_email', $obj);
   }
 }
 
