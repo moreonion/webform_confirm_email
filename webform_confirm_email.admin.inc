@@ -89,7 +89,6 @@ function _webform_confirm_email_email_delete($form, &$form_state) {
  * It creates the email settings form for the confirmation request emails
  */
 function webform_confirm_email_confirmation_request_edit($node, $email = array()) {
-  include_once drupal_get_path('module', 'webform') . '/includes/webform.emails.inc';
 
   // copied from form.inc
   $form_state = array(
@@ -135,9 +134,10 @@ function webform_confirm_email_confirmation_request_edit($node, $email = array()
  */
 function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$form_state) {
 
-  $foo = 'bar';
+  if (   isset($form_state['values']['eid']) == TRUE
+      && isset($form['node']['#value']->nid) == TRUE
+      && empty($form['eid']['#value'])       == TRUE /*-> new email*/) {
 
-  if (isset($form_state['values']['eid']) == TRUE) {
     $obj['eid']        = $form_state['values']['eid'];
     $obj['nid']        = $form['node']['#value']->nid;
     $obj['email_type'] = (int) 1;
@@ -146,6 +146,57 @@ function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$
       'webform_confirm_email',
       $obj
     );
+  }
+}
+
+/**
+ * callback function set in hook_menu().
+ * It creates the email settings form for the confirmation request emails
+ */
+function webform_confirm_email_confirmation_request_delete($node, $email = array()) {
+
+  // copied from form.inc
+  $form_state = array(
+   'storage'   => NULL,
+   'submitted' => FALSE,
+   'post'      => $_POST,
+  );
+
+  $form = drupal_retrieve_form('webform_email_delete_form', $form_state, $node, $email);
+  $form['#build_id'] = 'form-' . md5(uniqid(mt_rand(), TRUE));
+
+  drupal_prepare_form('webform_email_delete_form', $form, $form_state);
+
+  unset($form_state['post']);
+
+  $form['#post'] = $_POST;
+
+  $form['#submit'] = array(
+    'webform_email_delete_form_submit',
+    '_webform_confirm_email_confirmation_request_email_delete_submit',
+  );
+
+  drupal_process_form('webform_email_delete_form', $form, $form_state);
+
+  return drupal_render_form('webform_email_delete_form', $form);
+}
+
+/**
+ * submit handler for confirmation request emails edit form
+ */
+function _webform_confirm_email_confirmation_request_email_delete_submit($form, &$form_state) {
+
+  $node  = $form_state['values']['node'];
+  $email = $form_state['values']['email'];
+
+  if (   isset($email['eid']) == TRUE
+      && isset($node->nid) == TRUE) {
+    db_query(
+      'DELETE FROM {webform_confirm_email} ' .
+        'WHERE nid = %d ' .
+        'AND   eid = %d',
+      $node->nid,
+      $email['eid']);
   }
 }
 
@@ -222,13 +273,6 @@ function webform_confirm_email_confirmation_request_email_add($form, &$form_stat
   $form_state['redirect'] = array(
     'node/' . $form['#node']->nid . '/webform/confirmation_request/new',
   );
-}
-
-/**
- * submit handler callback from the confirmation request email add button
- */
-function webform_confirm_email_confirmation_email_add($form, &$form_state) {
-  print("<br><br> --- halllo ----<br><br>");
 }
 
 /**
@@ -350,40 +394,3 @@ function theme_webform_confirm_email_email_add_form($form) {
 
   return drupal_render($form);
 }
-
-
-/**
- * Implements hook_form_FORM_ID_alter()
- *
- * This hook adds a radio button list titled "MESSAGE TYPE" to the webform
- * "Edit e-mail settings" site
- */
-/*function webform_confirm_email_form_webform_email_edit_form_alter(&$form, &$form_state) {
-  $form['#submit'][] = '_webform_confirm_email_edit_std_email_submit';
-  }*/
-
-/**
- * This implements the submit handler callback for an webform
- * email settings edit event
- *
- * @param $form
- *   the form for which webform email settings are changed
- *
- * @param $form_state
- *   the form_state of the form
- */
-/*function _webform_confirm_email_edit_std_email_submit($form, &$form_state) {
-
-  if (isset($form['eid']['#value']) == TRUE) {
-    $obj['eid'] = $form['eid']['#value'];
-    $obj['nid'] = $form['#node']->nid;
-    $obj['email_type'] = (int) 0;
-
-    drupal_write_record(
-      'webform_confirm_email',
-      $obj,
-      array('nid', 'eid', 'email_type')
-    );
-  }
-  }*/
-

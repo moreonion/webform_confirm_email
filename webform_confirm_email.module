@@ -269,6 +269,15 @@ function webform_confirm_email_menu() {
       'access arguments' => array('update', 1),
       'type' => MENU_CALLBACK,
     ),
+    'node/%webform_menu/webform/confirmation_request/%webform_menu_email/delete' => array(
+      'title'            => t('Delete a confirmation request e-mail'),
+      'load arguments'   => array(1),
+      'page callback'    => 'webform_confirm_email_confirmation_request_delete',
+      'page arguments'   => array(1, 4),
+      'access callback'  => 'node_access',
+      'access arguments' => array('update', 1),
+      'type' => MENU_CALLBACK,
+    ),
     //FIXME
     //We're not doing anything helpful with this right now.
     'node/%webform_menu/report_abuse/%webform_menu_submission/%' => array(
