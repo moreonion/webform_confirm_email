@@ -1,6 +1,5 @@
 name = Webform Confirm Email
-description = Webform addon to confirm submitters' email.
+description = Webform addon to confirm submitters email.
 core = 6.x
 package = Webform
 php = 5.0
-
