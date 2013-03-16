@@ -270,7 +270,7 @@ function theme_webform_confirm_email_emails_form($form) {
 
     $rows = array();
     $eids = element_children($form[$email_type]);
-    if (count($eids) > 1) {
+    if (count($eids) > 2) {
       foreach ($eids as $eid) {
         if ($eid != 'add' && $eid != 'add_button') {
           // Add each component to a table row.
