@@ -90,9 +90,28 @@ function _webform_confirm_email_email_delete($form, &$form_state) {
  */
 function webform_confirm_email_confirmation_request_edit($node, $email = array()) {
   include_once drupal_get_path('module', 'webform') . '/includes/webform.emails.inc';
-  $form_state = array();
+
+  // copied from form.inc
+  $form_state = array(
+   'storage'   => NULL,
+   'submitted' => FALSE,
+   'post'      => $_POST,
+  );
+
   $form = drupal_retrieve_form('webform_email_edit_form', $form_state, $node, $email);
+  $form['#build_id'] = 'form-' . md5(uniqid(mt_rand(), TRUE));
+
   drupal_prepare_form('webform_email_edit_form', $form, $form_state);
+
+  unset($form_state['post']);
+
+  $form['#post'] = $_POST;
+
+  $form['#submit'] = array(
+    'webform_email_edit_form_submit',
+    '_webform_confirm_email_edit_confirmation_request_email_submit',
+  );
+
   drupal_process_form('webform_email_edit_form', $form, $form_state);
 
   $instructions = $form['template']['tokens']['#value'];
@@ -108,25 +127,24 @@ function webform_confirm_email_confirmation_request_edit($node, $email = array()
   );
   $form['template']['tokens']['#value'] = str_replace($search, $rep, $instructions);
 
-  $form['#submit'][] = '_webform_confirm_email_edit_confirmation_request_email_submit';
-
   return drupal_render_form('webform_email_edit_form', $form);
 }
 
 /**
- * submithandler for confirmation request emails edit form
+ * submit handler for confirmation request emails edit form
  */
 function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$form_state) {
 
-  if (isset($form['eid']['#value']) == TRUE) {
-    $obj['eid']        = $form['eid']['#value'];
-    $obj['nid']        = $form['#node']->nid;
+  $foo = 'bar';
+
+  if (isset($form_state['values']['eid']) == TRUE) {
+    $obj['eid']        = $form_state['values']['eid'];
+    $obj['nid']        = $form['node']['#value']->nid;
     $obj['email_type'] = (int) 1;
 
     drupal_write_record(
       'webform_confirm_email',
-      $obj,
-      array('nid', 'eid', 'email_type')
+      $obj
     );
   }
 }
@@ -141,12 +159,8 @@ function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$
  */
 function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_state) {
 
-  $form['emails']['add'] = $form['add'];
   unset($form['add']);
-  foreach(array('option', 'custom', 'component') as $add_option) {
-    $form['emails']['add']['emails_' . $add_option] = $form['emails']['add']['email_' . $add_option];
-    unset($form['emails']['add']['email_' . $add_option]);
-  }
+
   $form['emails']['add_button'] = $form['add_button'];
   unset($form['add_button']);
   $form['emails']['add_button']['#value']  = t('Add standard email');
@@ -180,42 +194,12 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
       }
     }
 
-    $form[$email_type_name]['add'] = array(
-      '#theme' => 'webform_email_add_form',
-      '#tree'  => FALSE,
-    );
-
-    $form[$email_type_name]['add'][$email_type_name . '_option'] = array(
-      '#type' => 'radios',
-      '#options' => array(
-        'custom'    => t('Address'),
-        'component' => t('Component value'),
-      ),
-      '#default_value' => 'custom',
-    );
-
-    $form[$email_type_name]['add'][$email_type_name . '_custom'] = array(
-      '#type'      => 'textfield',
-      '#size'      => 24,
-      '#maxlength' => 500,
-    );
-
-    $form[$email_type_name]['add'][$email_type_name . '_component'] = array(
-      '#type'    => 'select',
-      '#options' => webform_component_list($form['#node'], 'email_address', FALSE),
-      );
-
-    if (empty($form[$email_type_name]['add'][$email_type_name . '_component']['#options']) == TRUE) {
-      $form[$email_type_name]['add'][$email_type_name . '_component']['#options'][''] = t('No available components');
-      $form[$email_type_name]['add'][$email_type_name . '_component']['#disabled'] = TRUE;
-      }
-
     if ($email_type_name == 'confirmation_request') {
-      $button_label = t('Add confirmation request mail');
-      $submit_callback = array('webform_emails_form_submit');
+      $button_label    = t('Add confirmation request mail');
+      $submit_callback = array('webform_confirm_email_confirmation_request_email_add');
     }
     elseif ($email_type_name == 'confirmation') {
-      $button_label = t('Add confirmation mail');
+      $button_label    = t('Add confirmation mail');
       $submit_callback = array('webform_confirm_email_confirmation_email_add');
     }
 
@@ -226,6 +210,25 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
       '#weight' => 45,
     );
   }
+}
+
+/**
+ * submit handler callback from the confirmation request email add button
+ *
+ * set a redirect to the path node/xx/webform/confirmation_request/new where
+ * in hook_menu a page callback is defined: webform_confirm_email_confirmation_request_edit
+ */
+function webform_confirm_email_confirmation_request_email_add($form, &$form_state) {
+  $form_state['redirect'] = array(
+    'node/' . $form['#node']->nid . '/webform/confirmation_request/new',
+  );
+}
+
+/**
+ * submit handler callback from the confirmation request email add button
+ */
+function webform_confirm_email_confirmation_email_add($form, &$form_state) {
+  print("<br><br> --- halllo ----<br><br>");
 }
 
 /**
@@ -270,7 +273,7 @@ function theme_webform_confirm_email_emails_form($form) {
 
     $rows = array();
     $eids = element_children($form[$email_type]);
-    if (count($eids) > 2) {
+    if (count($eids) > 1) {
       foreach ($eids as $eid) {
         if ($eid != 'add' && $eid != 'add_button') {
           // Add each component to a table row.
@@ -355,9 +358,9 @@ function theme_webform_confirm_email_email_add_form($form) {
  * This hook adds a radio button list titled "MESSAGE TYPE" to the webform
  * "Edit e-mail settings" site
  */
-function webform_confirm_email_form_webform_email_edit_form_alter(&$form, &$form_state) {
+/*function webform_confirm_email_form_webform_email_edit_form_alter(&$form, &$form_state) {
   $form['#submit'][] = '_webform_confirm_email_edit_std_email_submit';
-}
+  }*/
 
 /**
  * This implements the submit handler callback for an webform
@@ -369,7 +372,7 @@ function webform_confirm_email_form_webform_email_edit_form_alter(&$form, &$form
  * @param $form_state
  *   the form_state of the form
  */
-function _webform_confirm_email_edit_std_email_submit($form, &$form_state) {
+/*function _webform_confirm_email_edit_std_email_submit($form, &$form_state) {
 
   if (isset($form['eid']['#value']) == TRUE) {
     $obj['eid'] = $form['eid']['#value'];
@@ -382,5 +385,5 @@ function _webform_confirm_email_edit_std_email_submit($form, &$form_state) {
       array('nid', 'eid', 'email_type')
     );
   }
-}
+  }*/
 
