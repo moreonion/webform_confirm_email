@@ -19,7 +19,10 @@ function webform_confirm_email_webform_component_delete($component) {
   }
 
   $results = db_query(
-    'SELECT eid from {webform_emails} WHERE nid = %d AND email = %d',
+    'SELECT eid ' .
+      'FROM {webform_emails} ' .
+        'WHERE nid = %d ' .
+        'AND email = %d ',
     $nid,
     $cid
   );
@@ -90,7 +93,9 @@ function _webform_confirm_email_email_delete($form, &$form_state) {
  */
 function webform_confirm_email_confirmation_request_edit($node, $email = array()) {
 
-  // copied from form.inc
+  include_once drupal_get_path('module', 'webform') . '/includes/webform.emails.inc';
+
+  // copied from form.inc: drupal_get_form
   $form_state = array(
    'storage'   => NULL,
    'submitted' => FALSE,
@@ -140,7 +145,6 @@ function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$
 
     $obj['eid']        = $form_state['values']['eid'];
     $obj['nid']        = $form['node']['#value']->nid;
-    $obj['email_type'] = (int) 1;
 
     drupal_write_record(
       'webform_confirm_email',
@@ -155,7 +159,9 @@ function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$
  */
 function webform_confirm_email_confirmation_request_delete($node, $email = array()) {
 
-  // copied from form.inc
+  include_once drupal_get_path('module', 'webform') . '/includes/webform.emails.inc';
+
+  // copied from form.inc: drupal_get_form
   $form_state = array(
    'storage'   => NULL,
    'submitted' => FALSE,
@@ -200,6 +206,158 @@ function _webform_confirm_email_confirmation_request_email_delete_submit($form, 
   }
 }
 
+/**
+ * Menu loader callback
+ */
+function webform_confirmation_email_load($eid, $nid) {
+
+  if ($eid == 'new') {
+    $email = array(
+      'email'               => '',
+      'subject'             => 'default',
+      'from_name'           => 'default',
+      'from_address'        => 'default',
+      'template'            => 'default',
+      'excluded_components' => array(),
+      'html'                => variable_get('webform_default_format', 0),
+      'attachments'         => 0,
+    );
+  }
+  else {
+    $query = db_query(
+      'SELECT  nid, eid, to_address AS email, from_name, from_address, subject, template, excluded_components, html, attachments '.
+        'FROM {webform_confirm_email_confirmation_emails} ' .
+          'WHERE nid  = %d ' .
+          'AND   eid = %d',
+      (int) $nid,
+      (int) $eid
+    );
+
+    $email = db_fetch_array($query);
+
+    if (variable_get('webform_format_override', 0) != 0) {
+      $email['html'] = variable_get('webform_default_format', 0);
+    }
+  }
+
+  return $email;
+}
+
+/**
+ * callback function set in hook_menu().
+ * It creates the email settings form for the confirmation request emails
+ */
+function webform_confirm_email_confirmation_edit($node, $email = array()) {
+
+  include_once drupal_get_path('module', 'webform') . '/includes/webform.emails.inc';
+
+  // copied from form.inc: drupal_get_form
+  $form_state = array(
+   'storage'   => NULL,
+   'submitted' => FALSE,
+   'post'      => $_POST,
+  );
+
+  $form = drupal_retrieve_form('webform_email_edit_form', $form_state, $node, $email);
+  $form['#build_id'] = 'form-' . md5(uniqid(mt_rand(), TRUE));
+
+  drupal_prepare_form('webform_email_edit_form', $form, $form_state);
+
+  unset($form_state['post']);
+
+  $form['#post'] = $_POST;
+
+  $form['#submit'] = array(
+    '_webform_confirm_email_edit_confirmation_email_submit',
+  );
+
+  drupal_process_form('webform_email_edit_form', $form, $form_state);
+
+  return drupal_render_form('webform_email_edit_form', $form);
+}
+
+function _webform_confirm_email_edit_confirmation_email_submit($form, &$form_state) {
+
+  // FIXME: ensure that a confirmation request email was defined before
+
+  // copied from webform_email_edit_form_submit
+
+  $node = $form_state['values']['node'];
+
+  // Merge the e-mail, name, address, and subject options into single values.
+  $email = array(
+    'eid' => $form_state['values']['eid'],
+    'nid' => $node->nid,
+  );
+
+  foreach (array('email', 'from_name', 'from_address', 'subject') as $field) {
+    $option = $form_state['values'][$field . '_option'];
+    if ($option == 'default') {
+      $email[$field] = 'default';
+    }
+    else {
+      $email[$field] = $form_state['values'][$field . '_' . $option];
+    }
+  }
+
+  $email['to_address'] = $email['email'];
+  unset($email['email']);
+
+  // Ensure templates are unaffected by differences in line breaks.
+  $form_state['values']['template']             = str_replace(array("\r", "\n"), array('', "\n"), $form_state['values']['template']);
+  $form_state['values']['templates']['default'] = str_replace(array("\r", "\n"), array('', "\n"), $form_state['values']['templates']['default']);
+
+  // Set the template value.
+  if (strcmp(trim($form_state['values']['templates']['default']), trim($form_state['values']['template'])) == 0) {
+    $email['template'] = 'default';
+  }
+  else {
+    $email['template'] = $form_state['values']['template'];
+  }
+
+  // Save the attachment and HTML options provided by MIME mail.
+  $email['html']        = (empty($form_state['values']['html']) == TRUE)        ? 0 : 1;
+  $email['attachments'] = (empty($form_state['values']['attachments']) == TRUE) ? 0 : 1;
+
+  // Save the list of included components.
+  // We actually maintain an *exclusion* list, so any new components will
+  // default to being included in the %email_values token until unchecked.
+  $included = array_keys(array_filter((array) $form_state['values']['components']));
+  $excluded = array_diff(array_keys($node->webform['components']), $included);
+  $email['excluded_components'] = implode(',', $excluded);
+
+  if (empty($form_state['values']['eid']) == TRUE) {
+    drupal_set_message(t('Email settings added.'));
+
+    db_lock_table('webform_confirm_email_confirmation_emails');
+
+    if (isset($email['eid']) == FALSE) {
+      $email['eid'] = db_result(
+        db_query(
+          'SELECT MAX(eid) ' .
+            'FROM {webform_confirm_email_confirmation_emails} '.
+              'WHERE nid = %d',
+          $email['nid']
+        )
+      ) + 1;
+    }
+
+    drupal_write_record('webform_confirm_email_confirmation_emails', $email);
+    db_unlock_tables();
+
+    $form_state['values']['eid'] = $email['eid'];
+  }
+  else {
+    drupal_set_message(t('Email settings updated.'));
+
+    drupal_write_record('webform_confirm_email_confirmation_emails', $email, array('nid', 'eid'));
+  }
+
+  $form_state['redirect'] = array('node/' . $node->nid . '/webform/emails');
+}
+
+function webform_confirm_email_confirmation_delete($node, $email = array()) {
+}
 
 /**
  * Implements hook_form_FORM_ID_alter()
@@ -218,49 +376,56 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
   $form['emails']['add_button']['#submit'] = array('webform_emails_form_submit');
 
   $query = db_query(
-    'SELECT eid, email_type '.
+    'SELECT eid '.
       'FROM {webform_confirm_email} ' .
-        'WHERE nid = %d ' .
-        'AND   email_type IN (1, 2)',
+        'WHERE nid = %d ' ,
     (int) $form['#node']->nid
   );
 
-  $result = array();
-  while ($row = db_fetch_array($query)) {
-    $result[$row['eid']] = $row['email_type'];
+  $form['confirmation_request'] = array();
+  while ($eid = db_fetch_array($query)) {
+    $eid = array_shift($eid);
+    $form['confirmation_request'][$eid]['email']   = $form['emails'][$eid]['email'];
+    $form['confirmation_request'][$eid]['subject'] = $form['emails'][$eid]['subject'];
+    $form['confirmation_request'][$eid]['from']    = $form['emails'][$eid]['from'];
+
+    unset($form['emails'][$eid]);
   }
 
-  foreach(array(1 => 'confirmation_request', 2 => 'confirmation') as $email_type_id => $email_type_name) {
+  $form['confirmation_request']['add_button'] = array(
+    '#type'   => 'submit',
+    '#value'  => t('Add confirmation request mail'),
+    '#submit' => array('webform_confirm_email_confirmation_request_email_add'),
+    '#weight' => 45,
+  );
 
-    $form[$email_type_name] = array();
-
-    foreach($result as $eid => $email_type) {
-
-      if ($email_type == $email_type_id) {
-        $form[$email_type_name][$eid]['email']   = $form['emails'][$eid]['email'];
-        $form[$email_type_name][$eid]['subject'] = $form['emails'][$eid]['subject'];
-        $form[$email_type_name][$eid]['from']    = $form['emails'][$eid]['from'];
-
-        unset($form['emails'][$eid]);
-      }
+  $form['confirmation'] = array();
+  $query = db_query(
+    'SELECT eid, to_address AS email, subject, from_name, from_address '.
+      'FROM {webform_confirm_email_confirmation_emails} ' .
+        'WHERE nid = %d ' ,
+    (int) $form['#node']->nid
+  );
+  while ($email = db_fetch_array($query)) {
+    $eid = array_shift($email);
+    if (empty($email['from_name']) == FALSE ) {
+      $email['from'] = '&quot;' . $email['from_name'] . '&quot; &lt;' . $email['from_address'] . '&gt;';
     }
-
-    if ($email_type_name == 'confirmation_request') {
-      $button_label    = t('Add confirmation request mail');
-      $submit_callback = array('webform_confirm_email_confirmation_request_email_add');
+    else {
+      $email['from'] = $email['from_address'];
     }
-    elseif ($email_type_name == 'confirmation') {
-      $button_label    = t('Add confirmation mail');
-      $submit_callback = array('webform_confirm_email_confirmation_email_add');
-    }
-
-    $form[$email_type_name]['add_button'] = array(
-      '#type'   => 'submit',
-      '#value'  => $button_label,
-      '#submit' => $submit_callback,
-      '#weight' => 45,
-    );
+    $form['confirmation'][$eid]['email']['#value']   = $email['email'];
+    $form['confirmation'][$eid]['subject']['#value'] = $email['subject'];
+    $form['confirmation'][$eid]['from']['#value']    = $email['from'];
   }
+
+  $form['confirmation']['add_button'] = array(
+    '#type'   => 'submit',
+    '#value'  =>  t('Add confirmation mail'),
+    '#submit' =>  array('webform_confirm_email_confirmation_email_add'),
+    '#weight' => 45,
+  );
+
 }
 
 /**
@@ -272,6 +437,18 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
 function webform_confirm_email_confirmation_request_email_add($form, &$form_state) {
   $form_state['redirect'] = array(
     'node/' . $form['#node']->nid . '/webform/confirmation_request/new',
+  );
+}
+
+/**
+ * submit handler callback from the confirmation email add button
+ *
+ * set a redirect to the path node/xx/webform/confirmation/new where
+ * in hook_menu a page callback is defined: webform_confirm_email_confirmation_edit
+ */
+function webform_confirm_email_confirmation_email_add($form, &$form_state) {
+  $form_state['redirect'] = array(
+    'node/' . $form['#node']->nid . '/webform/confirmation/new',
   );
 }
 

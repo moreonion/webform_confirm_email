@@ -36,11 +36,11 @@ function webform_confirm_email_webform_submission_delete($node, $submission) {
   );
 }
 
-function webform_confirm_email_get_email_type($nid, $eid) {
+function webform_confirm_email_is_confirmation_request($nid, $eid) {
 
   $obj = db_fetch_object(
     db_query(
-      'SELECT email_type '.
+      'SELECT nid '.
          'FROM {webform_confirm_email} ' .
            'WHERE nid = %d ' .
            'AND   eid = %d ',
@@ -49,7 +49,7 @@ function webform_confirm_email_get_email_type($nid, $eid) {
     )
   );
 
-  return (int)($obj->email_type);
+  return is_object($obj);
 }
 
 /**
@@ -73,8 +73,10 @@ function webform_confirm_email_generate_key($nid, $sid, $email = null) {
   else {
     return db_result(
       db_query(
-        'select code from {webform_confirm_email_code} '.
-          'where nid = %d and sid = %d',
+        'SELECT code ' .
+          'FROM {webform_confirm_email_code} ' .
+            'WHERE nid = %d ' .
+            'AND   sid = %d ',
         $nid,
         $sid
       )
@@ -98,16 +100,15 @@ function webform_confirm_email_generate_key($nid, $sid, $email = null) {
  * @param $message
  */
 function webform_confirm_email_mail_alter(&$message) {
-  $email_type = webform_confirm_email_get_email_type($message['params']['email']['nid'], $message['params']['email']['eid']);
-  $eid = (int) $message['params']['email']['eid'];
-  $nid = (int) $message['params']['email']['nid'];
-  $sid = (int) ($message['params']['submission']->sid);
-  $obj = array(
-    'nid' => $nid,
-    'sid' => $sid,
-  );
+  if (webform_confirm_email_is_confirmation_request($message['params']['email']['nid'], $message['params']['email']['eid']) == TRUE) {
+    $eid = (int) $message['params']['email']['eid'];
+    $nid = (int) $message['params']['email']['nid'];
+    $sid = (int) ($message['params']['submission']->sid);
+    $obj = array(
+      'nid' => $nid,
+      'sid' => $sid,
+    );
 
-  if ($email_type == 1) {
     $obj['datetime'] = time();
     $obj['email']    = $message['to'];
     $code            = webform_confirm_email_generate_key($nid, $sid, $obj['email']);
@@ -124,8 +125,10 @@ function webform_confirm_email_mail_alter(&$message) {
     }
     $result = db_result(
       db_query(
-        'select count(*) from {webform_confirm_email_code} '.
-          'where nid = %d and sid = %d',
+        'SELECT count(*) ' .
+          'FROM {webform_confirm_email_code} '.
+            'WHERE nid = %d ' .
+            'AND   sid = %d ',
         $nid,
         $sid
       )
@@ -138,14 +141,6 @@ function webform_confirm_email_mail_alter(&$message) {
     else {
       drupal_write_record('webform_confirm_email_code', $obj);
     }
-  }
-  elseif ($email_type == 2) {
-
-    $obj['message'] = $message;
-    // prevents drupal_mail from actually sending the message
-    $message['to'] = '+';
-    $message['send'] = FALSE;
-    drupal_write_record('webform_confirm_email_conditional', $obj);
   }
 }
 
@@ -273,6 +268,24 @@ function webform_confirm_email_menu() {
       'title'            => t('Delete a confirmation request e-mail'),
       'load arguments'   => array(1),
       'page callback'    => 'webform_confirm_email_confirmation_request_delete',
+      'page arguments'   => array(1, 4),
+      'access callback'  => 'node_access',
+      'access arguments' => array('update', 1),
+      'type' => MENU_CALLBACK,
+    ),
+    'node/%webform_menu/webform/confirmation/%webform_confirmation_email' => array(
+      'title'            => t('Edit confirmation e-mail settings'),
+      'load arguments'   => array(1),
+      'page callback'    => 'webform_confirm_email_confirmation_edit',
+      'page arguments'   => array(1, 4),
+      'access callback'  => 'node_access',
+      'access arguments' => array('update', 1),
+      'type' => MENU_CALLBACK,
+    ),
+    'node/%webform_menu/webform/confirmation/%webform_confirmation_email/delete' => array(
+      'title'            => t('Delete a confirmation request e-mail'),
+      'load arguments'   => array(1),
+      'page callback'    => 'webform_confirm_email_confirmation_delete',
       'page arguments'   => array(1, 4),
       'access callback'  => 'node_access',
       'access arguments' => array('update', 1),

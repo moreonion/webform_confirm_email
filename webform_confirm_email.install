@@ -9,107 +9,143 @@
  * Implementation of hook_schema().
  */
 function webform_confirm_email_schema() {
-  return array(
-  'webform_confirm_email_code' => array(
+  $schema = array();
+
+  $schema['webform_confirm_email_code'] = array(
     'description' => 'Table for storing email confirmation codes.',
-    'fields' => array(
+    'fields'      => array(
       'nid' => array(
         'description' => 'The node identifier of a webform.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
       ),
       'sid' => array(
         'description' => 'Submission identifier for this row\'s settings.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
       ),
       'eid' => array(
         'description' => 'The e-mail identifier for this row\'s settings.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-        'default' => 0,
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
+        'default'     => 0,
       ),
       'email' => array(
         'description' => 'Email address being confirmed.',
-        'type' => 'text',
-        'size' => 'medium',
-        'not null' => false,
+        'type'        => 'text',
+        'size'        => 'medium',
+        'not null'    => false,
       ),
       'code' => array(
         'description' => 'Used to confirm email addresses.',
-        'type' => 'char',
-        'length' => 32,
-        'not null' => true,
+        'type'        => 'char',
+        'length'      => 32,
+        'not null'    => true,
       ),
       'datetime' => array(
         'description' => 'Creation timestamp',
-        'type' => 'int',
-        'not null' => true,
+        'type'        => 'int',
+        'not null'    => true,
       ),
     ),
-    'primary key' => array('nid', 'sid'),//.....
-  ),
+    'primary key' => array('nid', 'sid'),
+  );
 
-  'webform_confirm_email_conditional' => array(
-    'description' => 'send these mails after confirmation...',
-    'fields' => array(
-      'ecid' => array(
-        'description' => 'Email conditional identifier.',
-        'type' => 'serial',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
+  $schema['webform_confirm_email_confirmation_emails'] = array(
+    'description' => 'Email definitions (from, to, subject, body, ...) for confirmation mails that are send after the user clicked the confirmation link.',
+    'fields'      => array(
       'nid' => array(
-        'description' => 'The node identifier of a webform.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'sid' => array(
-        'description' => 'Submission identifier for this row\'s settings.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'message' => array(
-        'description' => '...',
-        'type' => 'text',
-        'size' => 'medium',
-        'serialize' => true
-      ),
-    ),
-    'primary key' => array('ecid'),
-  ),
-  'webform_confirm_email' => array(
-    'description' => 'Table for storing email types.',
-    'fields' => array(
-      'nid' => array(
-        'description' => 'The node identifier of a webform.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
+        'description' => 'The node ID of a webform.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
       ),
       'eid' => array(
-        'description' => 'The e-mail identifier for this row\'s settings.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'size' => 'small',
-        'not null' => TRUE,
-        'default' => 0,
+        'description' => 'Confirmation email identifier.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'size'        => 'small',
+        'not null'    => TRUE,
+        'default'     => 0,
       ),
-      'email_type' => array(
-        'description' => 'Email type: 0) always; 1) confirmation; 2) conditional.',
-        'type' => 'int',
-        'size' => 'tiny',
-        'not null' => TRUE,
-        'default' => 0,
+      'to_address' => array(
+        'description' => 'The e-mail address that will be sent to upon submission. This may be an e-mail address, the special key "default" or a numeric value. If a numeric value is used, the value of a component will be substituted on submission.',
+        'type'        => 'text',
+        'not null'    => FALSE,
+      ),
+      'from_name' => array(
+        'description' => 'The e-mail "from" name that will be used. This may be a string, the special key "default" or a numeric value. If a numeric value is used, the value of a component will be substituted on submission.',
+        'type'        => 'varchar',
+        'length'      => '255',
+        'not null'    => FALSE,
+      ),
+      'from_address' => array(
+        'description' => 'The e-mail "from" e-mail address that will be used. This may be a string, the special key "default" or a numeric value. If a numeric value is used, the value of a component will be substituted on submission.',
+        'type'        => 'varchar',
+        'length'      => '255',
+        'not null'    => FALSE,
+      ),
+      'subject' => array(
+        'description' => 'The e-mail subject that will be used. This may be a string, the special key "default" or a numeric value. If a numeric value is used, the value of a component will be substituted on submission.',
+        'type'        => 'varchar',
+        'length'      => '255',
+        'not null'    => FALSE,
+      ),
+      'template' => array(
+        'description' => 'A template that will be used for the sent e-mail. This may be a string or the special key "default", which will use the template provided by the theming layer.',
+        'type'        => 'text',
+        'not null'    => FALSE,
+      ),
+      'excluded_components' => array(
+        'description' => 'A list of components that will not be included in the %email_values token. A list of CIDs separated by commas.',
+        'type'        => 'text',
+        'not null'    => TRUE,
+      ),
+      'html' => array(
+        'description' => 'Determines if the e-mail will be sent in an HTML format. Requires Mime Mail module.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'size'        => 'tiny',
+        'not null'    => TRUE,
+        'default'     => 0,
+      ),
+      'attachments' => array(
+        'description' => 'Determines if the e-mail will include file attachments. Requires Mime Mail module.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'size'        => 'tiny',
+        'not null'    => TRUE,
+        'default'     => 0,
       ),
     ),
     'primary key' => array('nid', 'eid'),
-  ));
+  );
+
+  $schema['webform_confirm_email'] = array(
+    'description' => 'Table for storing email types.',
+    'fields'      => array(
+      'nid' => array(
+        'description' => 'The node identifier of a webform.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
+      ),
+      'eid' => array(
+        'description' => 'The e-mail identifier for this row\'s settings.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'size'        => 'small',
+        'not null'    => TRUE,
+        'default'     => 0,
+      ),
+    ),
+    'primary key' => array('nid', 'eid'),
+  );
+
+  return $schema;
 }
 
 /**
