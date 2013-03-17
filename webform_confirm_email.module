@@ -258,7 +258,7 @@ function webform_confirm_email_menu() {
     'node/%webform_menu/webform/confirmation_request/%webform_menu_email' => array(
       'title'            => t('Edit confirmation request e-mail settings'),
       'load arguments'   => array(1),
-      'page callback'    => 'webform_confirm_email_confirmation_request_edit',
+      'page callback'    => 'webform_confirm_email_confirmation_request_email_edit',
       'page arguments'   => array(1, 4),
       'access callback'  => 'node_access',
       'access arguments' => array('update', 1),
@@ -267,7 +267,7 @@ function webform_confirm_email_menu() {
     'node/%webform_menu/webform/confirmation_request/%webform_menu_email/delete' => array(
       'title'            => t('Delete a confirmation request e-mail'),
       'load arguments'   => array(1),
-      'page callback'    => 'webform_confirm_email_confirmation_request_delete',
+      'page callback'    => 'webform_confirm_email_confirmation_request_email_delete',
       'page arguments'   => array(1, 4),
       'access callback'  => 'node_access',
       'access arguments' => array('update', 1),
@@ -276,7 +276,7 @@ function webform_confirm_email_menu() {
     'node/%webform_menu/webform/confirmation/%webform_confirmation_email' => array(
       'title'            => t('Edit confirmation e-mail settings'),
       'load arguments'   => array(1),
-      'page callback'    => 'webform_confirm_email_confirmation_edit',
+      'page callback'    => 'webform_confirm_email_confirmation_email_edit',
       'page arguments'   => array(1, 4),
       'access callback'  => 'node_access',
       'access arguments' => array('update', 1),
@@ -285,7 +285,7 @@ function webform_confirm_email_menu() {
     'node/%webform_menu/webform/confirmation/%webform_confirmation_email/delete' => array(
       'title'            => t('Delete a confirmation request e-mail'),
       'load arguments'   => array(1),
-      'page callback'    => 'webform_confirm_email_confirmation_delete',
+      'page callback'    => 'webform_confirm_email_confirmation_email_delete',
       'page arguments'   => array(1, 4),
       'access callback'  => 'node_access',
       'access arguments' => array('update', 1),

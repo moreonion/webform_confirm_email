@@ -32,7 +32,9 @@ function webform_confirm_email_webform_component_delete($component) {
     }
     $eid = (int) $wfemail->eid;
     db_query(
-      'DELETE from {webform_confirm_email} WHERE nid = %d AND eid = %d',
+      'DELETE FROM {webform_confirm_email} ' .
+        'WHERE nid = %d ' .
+        'AND   eid = %d ',
       $nid,
       $eid
     );
@@ -41,58 +43,20 @@ function webform_confirm_email_webform_component_delete($component) {
     // webform_confirm_email_confirm and webform_confirm_email_code.
     // webform module should take care of the following but since it doesn't...
     db_query(
-      'DELETE from {webform_emails} WHERE nid = %d AND eid = %d',
-      $nid,
-      $eid
-    );
-  }
-}
-
-/**
- * Implements hook_form_FORM_ID_alter().
- *
- * This adds a submit handler callback for the webform settings, so when
- * webform email settings are changed (an webform email is deleted) we
- * can react on this
- */
-function webform_confirm_email_form_webform_email_delete_form_alter(&$form, &$form_state) {
-  $form['#submit'][] = '_webform_confirm_email_email_delete';
-}
-
-/**
- * This implements the submit handler callback for an webform
- * email delete event
- *
- * @param $form
- *   the form from which a webform email is deleted
- *
- * @param $form_state
- *   the form_state of the form
- */
-function _webform_confirm_email_email_delete($form, &$form_state) {
-  $nid = (int) $form['email']['#value']['nid'];
-  $eid = (int) $form['email']['#value']['eid'];
-  if (   empty($nid) == FALSE
-      && empty($eid) == FALSE) {
-    db_query(
-      'DELETE FROM {webform_confirm_email} ' .
+      'DELETE FROM {webform_emails} ' .
         'WHERE nid = %d ' .
-        'AND   eid = %d',
+        'AND   eid = %d ',
       $nid,
       $eid
     );
-    // FIXME
-    // We need to handle deletions from
-    // webform_confirm_email_confirm and webform_confirm_email_code.
   }
 }
 
 /**
- * callback function set in hook_menu().
- * It creates the email settings form for the confirmation request emails
+ * helper function to build a form based on the 'webform_email_edit_form'
+ * from the webform module
  */
-function webform_confirm_email_confirmation_request_edit($node, $email = array()) {
-
+function _webform_confirm_email_build_webform_email_edit_form($node, $email, $submit_callbacks) {
   include_once drupal_get_path('module', 'webform') . '/includes/webform.emails.inc';
 
   // copied from form.inc: drupal_get_form
@@ -111,12 +75,29 @@ function webform_confirm_email_confirmation_request_edit($node, $email = array()
 
   $form['#post'] = $_POST;
 
-  $form['#submit'] = array(
-    'webform_email_edit_form_submit',
-    '_webform_confirm_email_edit_confirmation_request_email_submit',
-  );
+  $form['#submit'] = $submit_callbacks;
 
   drupal_process_form('webform_email_edit_form', $form, $form_state);
+
+  return $form;
+}
+
+/**
+ * callback function set in hook_menu().
+ *
+ * It creates the email settings form for the confirmation request emails;
+ * It is called for new emails to be set or for existing emails to be edited
+ */
+function webform_confirm_email_confirmation_request_email_edit($node, $email = array()) {
+
+  $form = _webform_confirm_email_build_webform_email_edit_form(
+    $node,
+    $email,
+    array(
+      'webform_email_edit_form_submit',
+      '_webform_confirm_email_edit_confirmation_request_email_submit',
+    )
+  );
 
   $instructions = $form['template']['tokens']['#value'];
   $search = '<p>' .
@@ -143,8 +124,8 @@ function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$
       && isset($form['node']['#value']->nid) == TRUE
       && empty($form['eid']['#value'])       == TRUE /*-> new email*/) {
 
-    $obj['eid']        = $form_state['values']['eid'];
-    $obj['nid']        = $form['node']['#value']->nid;
+    $obj['eid'] = $form_state['values']['eid'];
+    $obj['nid'] = $form['node']['#value']->nid;
 
     drupal_write_record(
       'webform_confirm_email',
@@ -152,13 +133,11 @@ function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$
     );
   }
 }
-
 /**
- * callback function set in hook_menu().
- * It creates the email settings form for the confirmation request emails
+ * helper function to build a form based on the 'webform_email_delete_form'
+ * from the webform module
  */
-function webform_confirm_email_confirmation_request_delete($node, $email = array()) {
-
+function _webform_confirm_email_build_webform_email_delete_form($node, $email, $submit_callbacks) {
   include_once drupal_get_path('module', 'webform') . '/includes/webform.emails.inc';
 
   // copied from form.inc: drupal_get_form
@@ -177,10 +156,7 @@ function webform_confirm_email_confirmation_request_delete($node, $email = array
 
   $form['#post'] = $_POST;
 
-  $form['#submit'] = array(
-    'webform_email_delete_form_submit',
-    '_webform_confirm_email_confirmation_request_email_delete_submit',
-  );
+  $form['#submit'] = $submit_callbacks;
 
   drupal_process_form('webform_email_delete_form', $form, $form_state);
 
@@ -188,7 +164,24 @@ function webform_confirm_email_confirmation_request_delete($node, $email = array
 }
 
 /**
- * submit handler for confirmation request emails edit form
+ * callback function set in hook_menu().
+ *
+ * It creates the delete email form for confirmation request emails
+ */
+function webform_confirm_email_confirmation_request_email_delete($node, $email = array()) {
+
+  return _webform_confirm_email_build_webform_email_delete_form(
+    $node,
+    $email,
+    array(
+      'webform_email_delete_form_submit',
+      '_webform_confirm_email_confirmation_request_email_delete_submit',
+    )
+  );
+}
+
+/**
+ * submit handler for deleting confirmation request emails
  */
 function _webform_confirm_email_confirmation_request_email_delete_submit($form, &$form_state) {
 
@@ -200,7 +193,7 @@ function _webform_confirm_email_confirmation_request_email_delete_submit($form, 
     db_query(
       'DELETE FROM {webform_confirm_email} ' .
         'WHERE nid = %d ' .
-        'AND   eid = %d',
+        'AND   eid = %d ',
       $node->nid,
       $email['eid']);
   }
@@ -208,6 +201,11 @@ function _webform_confirm_email_confirmation_request_email_delete_submit($form, 
 
 /**
  * Menu loader callback
+ *
+ * because we store confirmation email settings in our own table
+ * we need to define a menu loader callback to load data from
+ * our table and serve it to the webform_email_edit form we're
+ * reusing
  */
 function webform_confirmation_email_load($eid, $nid) {
 
@@ -227,13 +225,20 @@ function webform_confirmation_email_load($eid, $nid) {
     $query = db_query(
       'SELECT  nid, eid, to_address AS email, from_name, from_address, subject, template, excluded_components, html, attachments '.
         'FROM {webform_confirm_email_confirmation_emails} ' .
-          'WHERE nid  = %d ' .
-          'AND   eid = %d',
+          'WHERE nid = %d ' .
+          'AND   eid = %d ',
       (int) $nid,
       (int) $eid
     );
 
     $email = db_fetch_array($query);
+
+    if ($email['excluded_components'] == NULL) {
+      $email['excluded_components'] = array();
+    }
+    else {
+      $email['excluded_components'] = unserialize($email['excluded_components']);
+    }
 
     if (variable_get('webform_format_override', 0) != 0) {
       $email['html'] = variable_get('webform_default_format', 0);
@@ -247,35 +252,25 @@ function webform_confirmation_email_load($eid, $nid) {
  * callback function set in hook_menu().
  * It creates the email settings form for the confirmation request emails
  */
-function webform_confirm_email_confirmation_edit($node, $email = array()) {
+function webform_confirm_email_confirmation_email_edit($node, $email = array()) {
 
-  include_once drupal_get_path('module', 'webform') . '/includes/webform.emails.inc';
-
-  // copied from form.inc: drupal_get_form
-  $form_state = array(
-   'storage'   => NULL,
-   'submitted' => FALSE,
-   'post'      => $_POST,
+  $form = _webform_confirm_email_build_webform_email_edit_form(
+    $node,
+    $email,
+    array(
+      '_webform_confirm_email_edit_confirmation_email_submit',
+    )
   );
-
-  $form = drupal_retrieve_form('webform_email_edit_form', $form_state, $node, $email);
-  $form['#build_id'] = 'form-' . md5(uniqid(mt_rand(), TRUE));
-
-  drupal_prepare_form('webform_email_edit_form', $form, $form_state);
-
-  unset($form_state['post']);
-
-  $form['#post'] = $_POST;
-
-  $form['#submit'] = array(
-    '_webform_confirm_email_edit_confirmation_email_submit',
-  );
-
-  drupal_process_form('webform_email_edit_form', $form, $form_state);
 
   return drupal_render_form('webform_email_edit_form', $form);
 }
 
+/**
+ * submit handler for confirmation request emails edit form
+ *
+ * this generously borrows code from the webform_email_edit_form_submit
+ * function of the webform module
+ */
 function _webform_confirm_email_edit_confirmation_email_submit($form, &$form_state) {
 
   // FIXME: ensure that a confirmation request email was defined before
@@ -336,7 +331,7 @@ function _webform_confirm_email_edit_confirmation_email_submit($form, &$form_sta
         db_query(
           'SELECT MAX(eid) ' .
             'FROM {webform_confirm_email_confirmation_emails} '.
-              'WHERE nid = %d',
+              'WHERE nid = %d ',
           $email['nid']
         )
       ) + 1;
@@ -356,7 +351,38 @@ function _webform_confirm_email_edit_confirmation_email_submit($form, &$form_sta
   $form_state['redirect'] = array('node/' . $node->nid . '/webform/emails');
 }
 
-function webform_confirm_email_confirmation_delete($node, $email = array()) {
+/**
+ * callback function set in hook_menu().
+ * It creates the delete email form for confirmation emails
+ */
+function webform_confirm_email_confirmation_email_delete($node, $email = array()) {
+  return _webform_confirm_email_build_webform_email_delete_form(
+    $node,
+    $email,
+    array(
+      '_webform_confirm_email_confirmation_email_delete_submit',
+    )
+  );
+}
+
+/**
+ * submit handler for deleting confirmation emails
+ */
+function _webform_confirm_email_confirmation_email_delete_submit($form, &$form_state) {
+
+  $node  = $form_state['values']['node'];
+  $email = $form_state['values']['email'];
+
+  if (   isset($email['eid']) == TRUE
+      && isset($node->nid) == TRUE) {
+    db_query(
+      'DELETE FROM {webform_confirm_email_confirmation_emails} ' .
+        'WHERE nid = %d ' .
+        'AND   eid = %d ',
+      $node->nid,
+      $email['eid']);
+  }
+  $form_state['redirect'] = 'node/' . $node->nid . '/webform/emails';
 }
 
 /**
@@ -368,6 +394,7 @@ function webform_confirm_email_confirmation_delete($node, $email = array()) {
  */
 function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_state) {
 
+  // ******** standard emails ********
   unset($form['add']);
 
   $form['emails']['add_button'] = $form['add_button'];
@@ -382,6 +409,7 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
     (int) $form['#node']->nid
   );
 
+  // ******** confirmation request emails ********
   $form['confirmation_request'] = array();
   while ($eid = db_fetch_array($query)) {
     $eid = array_shift($eid);
@@ -399,6 +427,7 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
     '#weight' => 45,
   );
 
+  // ******** confirmation emails ********
   $form['confirmation'] = array();
   $query = db_query(
     'SELECT eid, to_address AS email, subject, from_name, from_address '.
@@ -406,17 +435,26 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
         'WHERE nid = %d ' ,
     (int) $form['#node']->nid
   );
+
+  $node = $form['#node'];
+
   while ($email = db_fetch_array($query)) {
     $eid = array_shift($email);
-    if (empty($email['from_name']) == FALSE ) {
-      $email['from'] = '&quot;' . $email['from_name'] . '&quot; &lt;' . $email['from_address'] . '&gt;';
+
+    $email_addresses = array_filter(explode(',', check_plain($email['email'])));
+    foreach ($email_addresses as $key => $email_address) {
+      $email_addresses[$key] = webform_format_email_address($email_address, NULL, $node, NULL, FALSE);
     }
-    else {
-      $email['from'] = $email['from_address'];
-    }
-    $form['confirmation'][$eid]['email']['#value']   = $email['email'];
-    $form['confirmation'][$eid]['subject']['#value'] = $email['subject'];
-    $form['confirmation'][$eid]['from']['#value']    = $email['from'];
+
+    $form['confirmation'][$eid]['email'] = array(
+      '#value' => implode('<br />', $email_addresses),
+    );
+    $form['confirmation'][$eid]['subject'] = array(
+      '#value' => check_plain(webform_format_email_subject($email['subject'], $node)),
+    );
+    $form['confirmation'][$eid]['from'] = array(
+      '#value' => check_plain(webform_format_email_address($email['from_address'], $email['from_name'], $node, NULL, FALSE)),
+    );
   }
 
   $form['confirmation']['add_button'] = array(
