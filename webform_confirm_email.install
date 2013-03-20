@@ -15,43 +15,37 @@ function webform_confirm_email_schema() {
     'description' => 'Table for storing email confirmation codes.',
     'fields'      => array(
       'nid' => array(
-        'description' => 'The node identifier of a webform.',
+        'description' => 'The node ID of a webform submission to be confirmed.',
         'type'        => 'int',
         'unsigned'    => TRUE,
         'not null'    => TRUE,
       ),
       'sid' => array(
-        'description' => 'Submission identifier for this row\'s settings.',
+        'description' => 'Submission ID of a webform submission to be confirmed.',
         'type'        => 'int',
         'unsigned'    => TRUE,
         'not null'    => TRUE,
       ),
       'eid' => array(
-        'description' => 'The e-mail identifier for this row\'s settings.',
+        'description' => 'The e-mail ID of a webform submission to be confirmed.',
         'type'        => 'int',
         'unsigned'    => TRUE,
         'not null'    => TRUE,
-        'default'     => 0,
-      ),
-      'email' => array(
-        'description' => 'Email address being confirmed.',
-        'type'        => 'text',
-        'size'        => 'medium',
-        'not null'    => false,
       ),
       'code' => array(
-        'description' => 'Used to confirm email addresses.',
+        'description' => 'The hash code used for the confirmation link of a webform submission to be confirmed.',
         'type'        => 'char',
         'length'      => 32,
-        'not null'    => true,
+        'not null'    => TRUE,
       ),
-      'datetime' => array(
-        'description' => 'Creation timestamp',
-        'type'        => 'int',
-        'not null'    => true,
+      'confirmation_emails' => array(
+        'description' => 'The confirmation email(s) that will be send out when this submission was confirmed',
+        'type'        => 'text',
+        'size'        => 'medium',
+        'serialize'   => TRUE,
       ),
     ),
-    'primary key' => array('nid', 'sid'),
+    'primary key' => array('nid', 'sid', 'eid'),
   );
 
   $schema['webform_confirm_email_confirmation_emails'] = array(

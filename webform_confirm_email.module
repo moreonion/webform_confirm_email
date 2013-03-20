@@ -24,13 +24,9 @@ include_once 'webform_confirm_email.admin.inc';
  */
 function webform_confirm_email_webform_submission_delete($node, $submission) {
   db_query(
-    'delete from {webform_confirm_email_code} where nid = %d and sid = %d',
-    $node->nid,
-    $submission->sid
-  );
-  db_query(
-    'delete from {webform_confirm_email_conditional} '.
-      'where nid = %d and sid = %d',
+    'DELETE FROM {webform_confirm_email_code} ' .
+      'WHERE nid = %d ' .
+      'AND   sid = %d ',
     $node->nid,
     $submission->sid
   );
@@ -53,7 +49,7 @@ function webform_confirm_email_is_confirmation_request($nid, $eid) {
 }
 
 /**
- * generate a hash for a new email submission, or get an existing hash
+ * generate a hash for a new email submission
  *
  * @param $nid
  *   node id of the submitted form
@@ -64,177 +60,377 @@ function webform_confirm_email_is_confirmation_request($nid, $eid) {
  *   has already happened and the webform_confirm_email_code table is searched
  *   for a hash
  */
-function webform_confirm_email_generate_key($nid, $sid, $email = null) {
-  if (isset($email)) {
-    return hash_hmac(
-      'md5', serialize(array($nid, $sid, $email)), drupal_get_private_key()
-    );
-  }
-  else {
-    return db_result(
-      db_query(
-        'SELECT code ' .
-          'FROM {webform_confirm_email_code} ' .
-            'WHERE nid = %d ' .
-            'AND   sid = %d ',
-        $nid,
-        $sid
-      )
-    );
-  }
+function webform_confirm_email_generate_key($nid, $sid, $eid) {
+  return hash_hmac(
+    'md5',
+    serialize(array($nid, $sid, $eid)),
+    drupal_get_private_key()
+  );
 }
 
 /**
  * Implementation of hook_mail_alter().
+ *
  * When drupal sends an email this function checks whether there is an entry
  * in the webform_confirm_email table that identifies the email as being a
- * conditional or confirmational mail.
- * If it's a confirmational mail a hash code is generated, an URL is generated
- * out of the hash and the "%confirm_url" is replaced in the email by this generated
+ * confirmation request email.
+ * If it's then a hash code is generated and an URL is build out of the hash.
+ * The "%confirm_url" variable in the mail body is replaced by this generated
  * confirmation URL.
- * If it's a conditional email, the email is stopped from being send; This is because
- * after a webform submission the webform module would send all emails that are
- * registered for this form; but we want the conditional email to be send only when
- * the user uses the confirmation link that is send to him/her in the confirmation email.
  *
  * @param $message
  */
 function webform_confirm_email_mail_alter(&$message) {
+
   if (webform_confirm_email_is_confirmation_request($message['params']['email']['nid'], $message['params']['email']['eid']) == TRUE) {
     $eid = (int) $message['params']['email']['eid'];
     $nid = (int) $message['params']['email']['nid'];
     $sid = (int) ($message['params']['submission']->sid);
-    $obj = array(
-      'nid' => $nid,
-      'sid' => $sid,
+
+    $code        = webform_confirm_email_generate_key($nid, $sid, $eid);
+    $confirm_url = url(
+      "node/$nid/sid/$sid/eid/$eid/confirm_email/$code",
+      array(
+        'absolute' => TRUE,
+        'external' => FALSE,
+      )
     );
 
-    $obj['datetime'] = time();
-    $obj['email']    = $message['to'];
-    $code            = webform_confirm_email_generate_key($nid, $sid, $obj['email']);
-    $obj['eid']      = $eid;
-    $obj['code']     = $code;
-    $confirm_url     = url(
-      "node/$nid/confirm_email/$sid/$code",
-      array('absolute' => true, 'external' => false)
-    );
     // replace %confirm_url with proper URL
-    // may have to rewrap the mail, not sure yet
     foreach ($message['body'] as $i => $b) {
       $message['body'][$i] = str_replace('%confirm_url', $confirm_url, $b);
     }
-    $result = db_result(
-      db_query(
-        'SELECT count(*) ' .
-          'FROM {webform_confirm_email_code} '.
-            'WHERE nid = %d ' .
-            'AND   sid = %d ',
-        $nid,
-        $sid
-      )
+
+    $query = db_query(
+      'SELECT eid ' .
+        'FROM {webform_confirm_email_confirmation_emails} ' .
+          'WHERE nid = %d ' ,
+      $nid
     );
-    if ($result) {
-      drupal_write_record(
-        'webform_confirm_email_code', $obj, array('nid', 'sid')
-      );
+    $confirmation_emails = array();
+    while($conf_eid = db_fetch_array($query)) {
+      $conf_eid                       = array_shift($conf_eid);
+      $confirmation_emails[$conf_eid] = _webform_confirm_email_build_confirmation_email($nid, $sid, webform_confirmation_email_load($conf_eid, $nid));
     }
-    else {
-      drupal_write_record('webform_confirm_email_code', $obj);
+
+    $obj = array(
+      'nid'                 => $nid,
+      'sid'                 => $sid,
+      'eid'                 => $eid,
+      'code'                => $code,
+      'confirmation_emails' => serialize($confirmation_emails),
+    );
+
+    drupal_write_record('webform_confirm_email_code', $obj);
+  }
+}
+
+/**
+ * helper function to build an email out of it's parts
+ *
+ * copied from webform_submission_send_mail()
+ */
+function _webform_confirm_email_build_confirmation_email($nid, $sid, $email) {
+  module_load_include('inc', 'webform', 'includes/webform.submissions');
+
+  $node       = node_load($nid);
+  $submission = webform_get_submission($nid, $sid);
+
+  // Set the HTML property based on availablity of MIME Mail.
+  $email['html'] = ($email['html'] && webform_email_html_capable());
+
+  // Pass through the theme layer if using the default template.
+  if ($email['template'] == 'default') {
+    $email['message'] = theme(array('webform_mail_' . $node->nid, 'webform_mail', 'webform_mail_message'), $node, $submission, $email);
+  }
+  else {
+    $email['message'] = $email['template'];
+  }
+
+  // Replace tokens in the message.
+  $email['message'] = _webform_filter_values($email['message'], $node, $submission, $email, FALSE, TRUE);
+
+  // Build the e-mail headers.
+  $email['headers'] = theme(array('webform_mail_headers_' . $nid, 'webform_mail_headers'), $node, $submission, $email);
+
+  // Assemble the From string.
+  if (isset($email['headers']['From'])) {
+    // If a header From is already set, don't override it.
+    $email['from'] = $email['headers']['From'];
+    unset($email['headers']['From']);
+  }
+  else {
+    $email['from'] = webform_format_email_address($email['from_address'], $email['from_name'], $node, $submission);
+  }
+
+  // Update the subject if set in the themed headers.
+  if (isset($email['headers']['Subject'])) {
+    $email['subject'] = $email['headers']['Subject'];
+    unset($email['headers']['Subject']);
+  }
+  else {
+    $email['subject'] = webform_format_email_subject($email['subject'], $node, $submission);
+  }
+
+  // Update the to e-mail if set in the themed headers.
+  if (isset($email['headers']['To'])) {
+    $email['email'] = $email['headers']['To'];
+    unset($email['headers']['To']);
+  }
+
+  // Generate the list of addresses that this e-mail will be sent to.
+  $addresses = array_filter(explode(',', $email['email']));
+  $addresses_final = array();
+  foreach ($addresses as $address) {
+    $address = trim($address);
+
+    // After filtering e-mail addresses with component values, a single value
+    // might contain multiple addresses (such as from checkboxes or selects).
+    $address = webform_format_email_address($address, NULL, $node, $submission, TRUE, FALSE, 'short');
+
+    if (is_array($address)) {
+      foreach ($address as $new_address) {
+        $new_address = trim($new_address);
+        if (valid_email_address($new_address)) {
+          $addresses_final[] = $new_address;
+        }
+      }
+    }
+    elseif (valid_email_address($address)) {
+      $addresses_final[] = $address;
     }
   }
+
+  $messages = array();
+
+  // Mail the webform results.
+  foreach ($addresses_final as $address) {
+    $message = array();
+    // Verify that this submission is not attempting to send any spam hacks.
+    if (_webform_submission_spam_check($address, $email['subject'], $email['from'], $email['headers'])) {
+      continue;
+    }
+
+    $language = $user->uid ? user_preferred_language($user) : language_default();
+    // this is a workaround: because the confirmation emails are stored seperately in the
+    // webform_confirm_email_confirmation_emails table it is possible that one of these will
+    // get the same eid as on of the confirmation request emails (wich are stored in webform_emails)
+    // if that happens our hook_mail_alter above will start doing unwanted things, hence we set
+    // eid to 0 here because none of the webform emails will ever get that eid
+    $email['eid'] = 0;
+    $mail_params = array(
+      'message'    => $email['message'],
+      'subject'    => $email['subject'],
+      'headers'    => $email['headers'],
+      'node'       => $node,
+      'submission' => $submission,
+      'email'      => $email,
+    );
+    if (webform_email_html_capable()) {
+      // Load attachments for the e-mail.
+      $attachments = array();
+      if ($email['attachments']) {
+        webform_component_include('file');
+        foreach ($node->webform['components'] as $component) {
+          if (webform_component_feature($component['type'], 'attachment') && !empty($submission->data[$component['cid']]['value'][0])) {
+            if (webform_component_implements($component['type'], 'attachments')) {
+              $files = webform_component_invoke($component['type'], 'attachments', $component, $submission->data[$component['cid']]['value']);
+              if ($files) {
+                $attachments = array_merge($attachments, $files);
+              }
+            }
+          }
+        }
+      }
+
+      // Enable drupal_mail_alter() to alter attachments.
+      $mail_params['attachments'] = $attachments;
+
+      // Prepare (but don't send) the e-mail normally.
+      $message['html_capable'] = drupal_mail(
+        'webform',
+        'submission',
+        $address,
+        $language,
+        $mail_params,
+        $email['from'],
+        FALSE
+      );
+      $message['html_capable']['html'] = !$email['html'];
+    }
+
+    $message['module']   = 'webform';
+    $message['key']      = 'submission';
+    $message['to']       = $address;
+    $message['language'] = $language;
+    $message['params']   = $mail_params;
+    $message['from']     = $email['from'];
+
+    $messages[] = $message;
+  }
+
+  return $messages;
 }
 
 /**
  * Form submit callback function of the confirmation form
  * the user gets presented when he/she clicks on the confirmation URL
- * that was sent to him/her with the confirmation email.
- * It's main purpose is to send off the conditional email that was stopped
- * in the webform_confirm_email_mail_alter function.
+ * that was sent to him/her with the confirmation request email.
+ * It's main purpose is to send off the confirmation email(s) that was stored
+ * previously in the webform_confirm_email_mail_alter function.
  */
 function _webform_confirm_email_confirmed_form_submit($form, &$form_state) {
-  $form_state['redirect'] = 'node';// somewhere else.....
-  $nid = (int) $form['nid']['#value'];
-  $sid = (int) $form['sid']['#value'];
 
-  db_query(
-    'delete from {webform_confirm_email_code} '.
-      'where nid = %d and sid = %d',
-    $nid,
-    $sid
-  );
+  $nid              = (int) $form['nid']['#value'];
+  $sid              = (int) $form['sid']['#value'];
+  $conf_request_eid = (int) $form['eid']['#value'];
+  //redirect user after confirmation to original webform
+  $form_state['redirect'] = 'node/' . $nid;
 
-  $query = 'select ecid, message from {webform_confirm_email_conditional} '.
-    'where nid = %d and sid = %d';
-
-  while ($obj = db_fetch_object(db_query($query, $nid, $sid))) {
-    $message = unserialize($obj->message);
-    // Concatenate and wrap the e-mail body.
-    if (is_array($message['body'])) {
-      $message['body'] = implode("\n\n", $message['body']);
-    }
-    $message['body'] = drupal_wrap_mail($message['body']);
-    $message['result'] = drupal_mail_send($message);
-    if ($message['result']) {
+  $emails = unserialize(
+    db_result(
       db_query(
-        'delete from {webform_confirm_email_conditional} '.
-        'where ecid = %d',
-        $obj->ecid
-      );
-    } else {
-      watchdog(
-        'mail',
-        'Error sending e-mail (from %from to %to).',
-        array('%from' => $message['from'], '%to' => $message['to']),
-        WATCHDOG_ERROR
-      );
-      drupal_set_message(
-        t(
-          'Unable to send e-mail. Please contact the site administrator '.
-            'if the problem persists.'
-        ),
-        'error'
-      );
+        'SELECT confirmation_emails ' .
+          'FROM {webform_confirm_email_code} ' .
+            'WHERE nid = %d ' .
+            'AND   sid = %d ' .
+            'AND   eid = %d ',
+        $nid,
+        $sid,
+        $conf_request_eid
+      )
+    )
+  );
+  $emails = unserialize($emails);
+
+  //module_load_include('inc', 'webform', 'includes/webform.submissions');
+
+  if (isset($emails) == TRUE) {
+    foreach($emails as $confirmation_eid => $messages) {
+      // one message can have more then 1 recipient so we loop
+      // and send each message separately
+      foreach($messages as $index => $message) {
+
+        if (   webform_email_html_capable()
+            && isset($message['html_capable']) == TRUE) {
+
+          // Send the e-mail via MIME mail.
+          $html_message = $message['html_capable'];
+          $result = mimemail(
+            $html_message['from'],
+            $html_message['to'],
+            $html_message['subject'],
+            $html_message['body'],
+            $html_message['html'],
+            $html_message['headers'],
+            $html_message['html'] ? $html_message['body'] : NULL,
+            $html_message['params']['attachments'],
+            'webform');
+          // Support boolean (older) or array-based return values from MIME Mail.
+          if (   (is_array($result) == TRUE  && $result['result'] != FALSE)
+              || (is_array($result) == FALSE && $result           != FALSE)) {
+            unset($messages[$index]);
+          }
+          else {
+            watchdog(
+              'mail',
+              'Error sending e-mail (from %from to %to).',
+              array('%from' => $html_message['from'], '%to' => $html_message['to']),
+              WATCHDOG_ERROR
+            );
+            drupal_set_message(
+              t(
+                'Unable to send e-mail. Please contact the site administrator if the problem persists.'
+              ),
+              'error'
+            );
+          }
+        }
+        else {
+
+          $result = drupal_mail(
+            $message['module'],
+            $message['key'],
+            $message['to'],
+            $message['language'],
+            $message['params'],
+            $message['from']
+          );
+
+          if ($result['result'] == TRUE) {
+            unset($messages[$index]);
+          }
+          else {
+            watchdog(
+              'mail',
+              'Error sending e-mail (from %from to %to).',
+              array('%from' => $message['from'], '%to' => $message['to']),
+              WATCHDOG_ERROR
+            );
+            drupal_set_message(
+              t(
+                'Unable to send e-mail. Please contact the site administrator if the problem persists.'
+              ),
+              'error'
+            );
+          }
+        }
+      }
+      if (count($messages) == 0) {
+        unset($emails[$confirmation_eid]);
+      }
     }
+  }
+  if (count($emails) == 0) {
+    db_query(
+      'DELETE FROM {webform_confirm_email_code} ' .
+        'WHERE nid = %d ' .
+        'AND   sid = %d ' .
+        'AND   eid = %d ',
+      $nid,
+      $sid,
+      $conf_request_eid
+    );
   }
 }
 
 /**
  * This function builds the confirmation form that a user reaches
- * when he/she followes the link provided in the confirmation email.
+ * when he/she followes the link provided in the confirmation request email.
  * The submit callback function, that is set here, will later take
- * care of sending the conditional email.
+ * care of sending the confirmation email(s).
  */
-function webform_confirm_email_response_form($form_state, $nid, $sid, $code) {
-  if (empty($code)) {
-    return array('ha' => array(
-      '#type' => 'markup',
-      '#value' => 'Missing code, what are you trying to pull!?'
-    ));
-  }
+function webform_confirm_email_response_form($form_state, $nid, $sid, $eid, $code) {
 
-  if (webform_confirm_email_generate_key($nid->nid, $sid->sid) !== $code) {
-    return array('ha' => array(
-      '#type' => 'markup',
-      '#value' => t('Invalid code.')
-    ));
+  $nid = (int) $nid;
+  $sid = (int) $sid;
+  $eid = (int) $eid;
+
+  if (   empty($code) == TRUE
+      || webform_confirm_email_generate_key($nid, $sid, $eid) != $code) {
+    return drupal_not_found();
   }
 
   $form = array(
-    'nid' => array('#type' => 'value', '#value' => $nid->nid),
-    'sid' => array('#type' => 'value', '#value' => $sid->sid),
+    'nid'     => array('#type' => 'value', '#value' => $nid),
+    'sid'     => array('#type' => 'value', '#value' => $sid),
+    'eid'     => array('#type' => 'value', '#value' => $eid),
     '#submit' => array('_webform_confirm_email_confirmed_form_submit')
   );
 
-  $question = t('Confirm your email address?');
+  $question    = t('Confirm your email address?');
   $description = t(
-    'You are here to confirm your email address to complete a form submission '.
-      'process. You can ackowledge this was you, click no to report the abuse'.
-      'of your email address or ignore this form knowing no email messages '.
-      'were sent from our site in your name.'
+    'You are here to confirm your email address to complete a form submission ' .
+    'process. You can ackowledge this was you, click no to report the abuse ' .
+    'of your email address or ignore this form knowing no email messages ' .
+    'were sent from our site in your name.'
   );
-  $report_abuse_url = 'node/' . $nid->nid . '/report_abuse/' . $sid->sid . "/$code";
+  $report_abuse_url = 'node/' . $nid . '/report_abuse/' . $sid . "/$code";
   return confirm_form(
-    $form, $question, $report_abuse_url, $description,
+    $form,
+    $question,
+    $report_abuse_url,
+    $description,
     t('Yes, that was me.'),
     t('No, someone is using my email address without my knowledge.')
   );
@@ -247,13 +443,13 @@ function webform_confirm_email_response_form($form_state, $nid, $sid, $code) {
  */
 function webform_confirm_email_menu() {
   return array(
-    'node/%webform_menu/confirm_email/%webform_menu_submission/%' => array(
-      'title'           => t('Submit email confirmation'),
+    'node/%/sid/%/eid/%/confirm_email' => array(
+      'title'           => 'Submit email confirmation',
       'load arguments'  => array(1),
       'page callback'   => 'drupal_get_form',
-      'page arguments'  => array('webform_confirm_email_response_form', 1, 3, 4),
+      'page arguments'  => array('webform_confirm_email_response_form', 1, 3, 5, 7),
       'access callback' => TRUE,
-      'type' => MENU_CALLBACK,
+      'type'            => MENU_CALLBACK,
     ),
     'node/%webform_menu/webform/confirmation_request/%webform_menu_email' => array(
       'title'            => t('Edit confirmation request e-mail settings'),
