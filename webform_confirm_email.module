@@ -421,7 +421,7 @@ function webform_confirm_email_response_form($form_state, $nid, $sid, $eid, $cod
   $question    = t('Confirm your email address?');
   $description = t(
     'You are here to confirm your email address to complete a form submission ' .
-    'process. You can ackowledge this was you, click no to report the abuse ' .
+    'process. You can acknowledge this was you, click no to report the abuse ' .
     'of your email address or ignore this form knowing no email messages ' .
     'were sent from our site in your name.'
   );
