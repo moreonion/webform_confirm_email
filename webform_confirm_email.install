@@ -9,105 +9,141 @@
  * Implements hook_schema().
  */
 function webform_confirm_email_schema() {
-  return array(
-    'webform_confirm_email_code' => array(
-      'description' => 'Table for storing email confirmation codes. That is 1 unique code for every webform for every submission',
-      'fields' => array(
-        'nid' => array(
-          'description' => 'The node identifier of a webform.',
-          'type'        => 'int',
-          'unsigned'    => TRUE,
-          'not null'    => TRUE,
-        ),
-        'sid' => array(
-          'description' => 'Submission identifier for this row\'s settings.',
-          'type'        => 'int',
-          'unsigned'    => TRUE,
-          'not null'    => TRUE,
-        ),
-        'eid' => array(
-          'description' => 'The e-mail identifier for this row\'s settings.',
-          'type'        => 'int',
-          'unsigned'    => TRUE,
-          'not null'    => TRUE,
-          'default'     => 0,
-        ),
-        'email' => array(
-          'description' => 'Email address being confirmed.',
-          'type'        => 'text',
-          'size'        => 'medium',
-          'not null'    => FALSE,
-        ),
-        'code' => array(
-          'description' => 'Used to confirm email addresses.',
-          'type'        => 'char',
-          'length'      => 32,
-          'not null'    => TRUE,
-        ),
-        'datetime' => array(
-          'description' => 'Creation timestamp',
-          'type'        => 'int',
-          'not null'    => TRUE,
-        ),
+  $schema = array();
+
+  $schema['webform_confirm_email_code'] = array(
+    'description' => 'Table for storing email confirmation codes.',
+    'fields'      => array(
+      'nid' => array(
+        'description' => 'The node ID of a webform submission to be confirmed.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
       ),
-      'primary key' => array('nid', 'sid'), //.....
-    ),
-    'webform_confirm_email_conditional' => array(
-      'description' => 'send these mails after confirmation...',
-      'fields' => array(
-        'ecid' => array(
-          'description' => 'Email conditional identifier.',
-          'type'        => 'serial',
-          'unsigned'    => TRUE,
-          'not null'    => TRUE,
-        ),
-        'nid' => array(
-          'description' => 'The node identifier of a webform.',
-          'type'        => 'int',
-          'unsigned'    => TRUE,
-          'not null'    => TRUE,
-        ),
-        'sid' => array(
-          'description' => 'Submission identifier for this row\'s settings.',
-          'type'        => 'int',
-          'unsigned'    => TRUE,
-          'not null'    => TRUE,
-        ),
-        'message' => array(
-          'description' => '...',
-          'type'        => 'text',
-          'size'        => 'medium',
-          'serialize'   => TRUE,
-        ),
+      'sid' => array(
+        'description' => 'Submission ID of a webform submission to be confirmed.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
       ),
-      'primary key' => array('ecid'),
-    ),
-    'webform_confirm_email' => array(
-      'description' => 'Table for storing email types.',
-      'fields' => array(
-        'nid' => array(
-          'description' => 'The node identifier of a webform.',
-          'type'        => 'int',
-          'unsigned'    => TRUE,
-          'not null'    => TRUE,
-        ),
-        'eid' => array(
-          'description' => 'The e-mail identifier for this row\'s settings.',
-          'type'        => 'int',
-          'unsigned'    => TRUE,
-          'size'        => 'small',
-          'not null'    => TRUE,
-          'default'     => 0,
-        ),
-        'email_type' => array(
-          'description' => 'Email type: 0) always; 1) confirmation; 2) conditional.',
-          'type'        => 'int',
-          'size'        => 'tiny',
-          'not null'    => TRUE,
-          'default'     => 0,
-        ),
+      'eid' => array(
+        'description' => 'The e-mail ID of a webform submission to be confirmed.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
       ),
-      'primary key' => array('nid', 'eid'),
+      'code' => array(
+        'description' => 'The hash code used for the confirmation link of a webform submission to be confirmed.',
+        'type'        => 'char',
+        'length'      => 32,
+        'not null'    => TRUE,
+      ),
     ),
+    'primary key' => array('nid', 'sid', 'eid'),
+  );
+
+  $schema['webform_confirm_email_confirmation_emails'] = array(
+    'description' => 'Confirmation emails are stored here to be send once the user used the confirmation URL',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'The node ID of a webform submission to be confirmed.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
+      ),
+      'sid' => array(
+        'description' => 'Submission ID of a webform submission to be confirmed.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
+      ),
+      'eid' => array(
+        'description' => 'The e-mail ID of a webform submission to be confirmed.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
+      ),
+      'datetime' => array(
+        'description' => 'Creation timestamp used for cron job cleanup of confirmation mails that exceeded their storage lifetime set by the admin',
+        'type'        => 'int',
+        'not null'    => TRUE,
+      ),
+      'email_message' => array(
+        'description' => 'The confirmation email that will be send once th confirmation URL is used',
+        'type'        => 'text',
+        'size'        => 'medium',
+        'serialize'   => TRUE,
+      ),
+    ),
+    'primary key' => array('nid', 'sid', 'eid'),
+  );
+
+  $schema['webform_confirm_email'] = array(
+    'description' => 'Table for storing email types.',
+    'fields'      => array(
+      'nid' => array(
+        'description' => 'The node identifier of a webform.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
+      ),
+      'eid' => array(
+        'description' => 'The e-mail identifier for this row\'s settings.',
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'size'        => 'small',
+        'not null'    => TRUE,
+        'default'     => 0,
+      ),
+      'email_type' => array(
+        'description' => 'Email type: 0) standard; 1) confirmation request; 2) confirmation.',
+        'type'        => 'int',
+        'size'        => 'tiny',
+        'not null'    => TRUE,
+        'default'     => 0,
+      ),
+      'redirect_url' => array(
+        'description' => 'The page that is called after the submitee confirmed his/her submission.',
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => FALSE,
+      ),
+    ),
+    'primary key' => array('nid', 'eid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_enable().
+ */
+function webform_confirm_email_enable() {
+  if (module_exists('mimemail') == TRUE) {
+    _webform_confirm_email_set_module_weight();
+  }
+}
+
+/**
+ * Implements hook_modules_enabled().
+ */
+function webform_confirm_email_modules_enabled($modules) {
+  if (in_array('mimemail', $modules) == TRUE) {
+    _webform_confirm_email_set_module_weight();
+  }
+}
+
+/**
+ * helper function to set the module weight of webform_confirm_email
+ * to be higher than that of the mimemail module
+ */
+function _webform_confirm_email_set_module_weight() {
+  db_query(<<<EOS
+    UPDATE system a
+      INNER JOIN system b
+        ON  a.name = 'webform_confirm_email'
+        AND b.name = 'mimemail'
+      SET a.weight = b.weight + 1
+EOS
   );
 }
