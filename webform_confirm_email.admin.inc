@@ -322,7 +322,7 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
 
   // ******** confirmation request emails ********
   $query = db_query(
-    'SELECT eid '.
+    'SELECT eid, redirect_url '.
     '  FROM {webform_confirm_email} ' .
     '    WHERE nid        = :nid ' .
     '    AND   email_type = :type' ,
@@ -330,14 +330,14 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
       ':nid'  => (int) $form['#node']->nid,
       ':type' => WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST,
     )
-  );
+  )->fetchAllKeyed();
 
   $form['confirmation_request'] = array();
-  while ($eid = $query->fetchField()) {
-    $form['confirmation_request'][$eid]['email']   = $form['emails'][$eid]['email'];
-    $form['confirmation_request'][$eid]['subject'] = $form['emails'][$eid]['subject'];
-    $form['confirmation_request'][$eid]['from']    = $form['emails'][$eid]['from'];
-
+  foreach ($query as $eid => $redirect_url) {
+    $form['confirmation_request'][$eid]['email']        = $form['emails'][$eid]['email'];
+    $form['confirmation_request'][$eid]['subject']      = $form['emails'][$eid]['subject'];
+    $form['confirmation_request'][$eid]['from']         = $form['emails'][$eid]['from'];
+    $form['confirmation_request'][$eid]['redirect_url'] = array('#markup' => ($redirect_url == NULL) ? 'default' : $redirect_url);
     unset($form['emails'][$eid]);
   }
 
@@ -349,7 +349,7 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
   );
 
   // ******** confirmation emails ********
-  $query = db_query(
+  $eids = db_query(
     'SELECT eid '.
     '  FROM {webform_confirm_email} ' .
     '    WHERE nid        = :nid ' .
@@ -358,11 +358,11 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
       ':nid'  => (int) $form['#node']->nid,
       ':type' => WEBFORM_CONFIRM_EMAIL_CONFIRMATION,
     )
-  );
+  )->fetchCol();
 
   $form['confirmation'] = array();
 
-  while ($eid = $query->fetchField()) {
+  foreach ($eids as $eid) {
     $form['confirmation'][$eid]['email']   = $form['emails'][$eid]['email'];
     $form['confirmation'][$eid]['subject'] = $form['emails'][$eid]['subject'];
     $form['confirmation'][$eid]['from']    = $form['emails'][$eid]['from'];
@@ -431,6 +431,16 @@ function theme_webform_confirm_email_emails_form($variables) {
       'colspan' => 2
     )
   );
+  $header_confirmation_request = array(
+    t('E-mail to'),
+    t('Subject'),
+    t('From'),
+    t('Redirect URL'),
+    array(
+      'data'    => t('Operations'),
+      'colspan' => 2
+    )
+  );
 
   $output = '';
   foreach(array(
@@ -446,16 +456,22 @@ function theme_webform_confirm_email_emails_form($variables) {
     if (array_search('add', $eids) !== FALSE) {
       unset($eids[array_search('add', $eids)]);
     }
+
     if (count($eids) > 0) {
       foreach ($eids as $eid) {
         // Add each component to a table row.
-        $rows[] = array(
+        $new_row = array(
           drupal_render($form[$email_type][$eid]['email']),
           drupal_render($form[$email_type][$eid]['subject']),
           drupal_render($form[$email_type][$eid]['from']),
-          l(t('Edit'),   'node/' . $node->nid . '/webform/' . $email_type . '/' . $eid),
-          l(t('Delete'), 'node/' . $node->nid . '/webform/' . $email_type . '/' . $eid . '/delete'),
         );
+        if ($email_type == 'confirmation_request') {
+          $new_row[] = drupal_render($form[$email_type][$eid]['redirect_url']);
+        }
+        $new_row[] = l(t('Edit'),   'node/' . $node->nid . '/webform/' . $email_type . '/' . $eid);
+        $new_row[] = l(t('Delete'), 'node/' . $node->nid . '/webform/' . $email_type . '/' . $eid . '/delete');
+
+        $rows[] = $new_row;
       }
     }
     else {
@@ -476,7 +492,7 @@ function theme_webform_confirm_email_emails_form($variables) {
     // Add a row containing form elements for a new item.
     $row_add_email = array(
       array(
-        'colspan' => 3,
+        'colspan' => ($email_type == 'confirmation_request') ? 4 : 3,
         'data'    => drupal_render($form[$email_type]['add'])
       ),
       array(
@@ -489,7 +505,7 @@ function theme_webform_confirm_email_emails_form($variables) {
     $output .= theme(
       'table',
       array(
-        'header' => $header,
+        'header' => ($email_type == 'confirmation_request') ? $header_confirmation_request : $header,
         'rows'   => $rows,
         'attributes' => array('id' => 'webform-' . $email_type),
       )
