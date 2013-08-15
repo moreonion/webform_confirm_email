@@ -65,6 +65,7 @@ function webform_confirm_email_webform_component_delete($component) {
  * It is called for new emails to be set or for existing emails to be edited
  */
 function webform_confirm_email_confirmation_request_email_edit($node, $email = array()) {
+  $form_id = 'webform_email_edit_form';
 
   $form_state = array(
     'build_info' => array(
@@ -78,11 +79,52 @@ function webform_confirm_email_confirmation_request_email_edit($node, $email = a
       '_webform_confirm_email_edit_confirmation_request_email_submit',
     ),
   );
-  $form = drupal_build_form(
-    'webform_email_edit_form',
-    $form_state
+  $form_state += form_state_defaults();
+  if (!isset($form_state['input'])) {
+    $form_state['input'] = $form_state['method'] == 'get' ? $_GET : $_POST;
+  }
+
+  $form = drupal_retrieve_form($form_id, $form_state);
+
+  // ********* add the redirect URL form field ************
+  $redirect_url = NULL;
+  if (!empty($email['eid'])) {
+    $redirect_url = db_query(
+      'SELECT redirect_url '.
+      '  FROM {webform_confirm_email} ' .
+      '    WHERE nid = :nid ' .
+      '    AND   eid = :eid ' ,
+      array(
+        ':nid' => $node->nid,
+        ':eid' => $email['eid'],
+      )
+    )->fetchField();
+  }
+
+  $form['redirect_url_option'] = array(
+    '#type'          => 'radios',
+    '#title'         => t('Set the redirect URL'),
+    '#description'   => t('Choose between default and custom redirect URL'),
+    '#default_value' => $redirect_url ? 'custom' : 'default',
   );
 
+  $form['redirect_url_option']['#options']['default'] = t('Default redirect URL from the webform: %value', array('%value' => $node->webform['redirect_url']));
+
+  $form['redirect_url_option']['#options']['custom'] = t('Custom redirect URL');
+  $form['redirect_url_custom'] = array(
+    '#type'          => 'textfield',
+    '#default_value' => $redirect_url ? $redirect_url : NULL,
+  );
+  drupal_prepare_form($form_id, $form, $form_state);
+  drupal_process_form($form_id, $form, $form_state);
+
+  $form['redirect_url_custom']['#attributes']['class']      = array('webform-set-active');
+  $form['redirect_url_option']['custom']['#theme_wrappers'] = array('webform_inline_radio');
+  $form['redirect_url_option']['custom']['#inline_element'] = drupal_render($form['redirect_url_custom']);
+
+  $form['redirect_url_option']['default']['#theme_wrappers'] = array('webform_inline_radio');
+
+  // ********* add help text for the %confirm_url token ************
 
   $instructions = $form['template']['tokens']['#markup'];
   $search = '<p>' .
@@ -113,19 +155,28 @@ function webform_confirm_email_confirmation_request_email_edit($node, $email = a
  * submit handler for confirmation request emails edit form
  */
 function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$form_state) {
-
   if (   isset($form_state['values']['eid']) == TRUE
-      && isset($form['node']['#value']->nid) == TRUE
-      && empty($form['eid']['#value'])       == TRUE /*-> new email*/) {
+      && isset($form['node']['#value']->nid) == TRUE) {
+    $obj['nid']          = $form['node']['#value']->nid;
+    $obj['email_type']   = WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST;
+    $obj['redirect_url'] = ($form_state['values']['redirect_url_option'] === 'custom') ? $form_state['values']['redirect_url_custom'] : NULL;
 
-    $obj['eid']        = $form_state['values']['eid'];
-    $obj['nid']        = $form['node']['#value']->nid;
-    $obj['email_type'] = WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST;
-
-    drupal_write_record(
-      'webform_confirm_email',
-      $obj
-    );
+    if (empty($form['eid']['#value']) == TRUE) {
+      //-> new email
+      $obj['eid'] = $form_state['values']['eid'];
+      drupal_write_record(
+        'webform_confirm_email',
+        $obj
+      );
+    }
+    else {
+      $obj['eid'] = $form['eid']['#value'];
+      drupal_write_record(
+        'webform_confirm_email',
+        $obj,
+        array('nid', 'eid')
+      );
+    }
   }
 }
 
@@ -215,17 +266,28 @@ function webform_confirm_email_confirmation_email_edit($node, $email = array()) 
 function _webform_confirm_email_edit_confirmation_email_submit($form, &$form_state) {
 
   if (   isset($form_state['values']['eid']) == TRUE
-      && isset($form['node']['#value']->nid) == TRUE
-      && empty($form['eid']['#value'])       == TRUE /*-> new email*/) {
+      && isset($form['node']['#value']->nid) == TRUE) {
 
     $obj['eid']        = $form_state['values']['eid'];
     $obj['nid']        = $form['node']['#value']->nid;
     $obj['email_type'] = WEBFORM_CONFIRM_EMAIL_CONFIRMATION;
 
-    drupal_write_record(
-      'webform_confirm_email',
-      $obj
-    );
+    if (empty($form['eid']['#value']) == TRUE) {
+      //-> new email
+      $obj['eid'] = $form_state['values']['eid'];
+      drupal_write_record(
+        'webform_confirm_email',
+        $obj
+      );
+    }
+    else {
+      $obj['eid'] = $form['eid']['#value'];
+      drupal_write_record(
+        'webform_confirm_email',
+        $obj,
+        array('nid', 'eid')
+      );
+    }
   }
 }
 
@@ -265,8 +327,8 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
     '    WHERE nid        = :nid ' .
     '    AND   email_type = :type' ,
     array(
-      'nid'  => (int) $form['#node']->nid,
-      'type' => WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST,
+      ':nid'  => (int) $form['#node']->nid,
+      ':type' => WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST,
     )
   );
 
@@ -293,8 +355,8 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
     '    WHERE nid        = :nid ' .
     '    AND   email_type = :type ' ,
     array(
-      'nid'  => (int) $form['#node']->nid,
-      'type' => WEBFORM_CONFIRM_EMAIL_CONFIRMATION,
+      ':nid'  => (int) $form['#node']->nid,
+      ':type' => WEBFORM_CONFIRM_EMAIL_CONFIRMATION,
     )
   );
 

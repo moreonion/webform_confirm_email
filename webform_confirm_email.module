@@ -24,6 +24,11 @@ function webform_confirm_email_webform_submission_delete($node, $submission) {
     ->condition('nid', $node->nid)
     ->condition('sid', $submission->sid)
     ->execute();
+
+  db_delete('webform_confirm_email_confirmation_emails')
+    ->condition('nid', $node->nid)
+    ->condition('sid', $submission->sid)
+    ->execute();
 }
 
 /**
@@ -69,8 +74,8 @@ function webform_confirm_email_generate_key($nid, $sid, $eid, $email = NULL) {
       'SELECT code ' .
       '  FROM {webform_confirm_email_code} ' .
       '    WHERE nid = :nid ' .
-      '      AND   sid = :sid ' .
-      '      AND   eid = :eid ',
+      '    AND   sid = :sid ' .
+      '    AND   eid = :eid ',
       array(
         ':nid' => $nid,
         ':sid' => $sid,
@@ -82,38 +87,17 @@ function webform_confirm_email_generate_key($nid, $sid, $eid, $email = NULL) {
 }
 
 /**
- * set the URL to which the submitee gets redirected after confirming his/her email address
- *
- * @param $nid
- *   node id of the submitted form
- * @param $eid
- *   email id of the conditional email
- * @param $url
- *   Drupal path to the page the submittee will be redirected to
- */
-function webform_confirm_email_set_redirect_url($nid, $eid, $url) {
-  db_update('webform_confirm_email')
-    ->fields(array(
-        'redirect_url' => $url,
-      )
-    )
-    ->condition('nid', $nid)
-    ->condition('eid', $eid)
-    ->execute();
-}
-
-/**
  * Implements hook_mail_alter().
  * When drupal sends an email this function checks whether there is an entry
  * in the webform_confirm_email table that identifies the email as being a
- * conditional or confirmational mail.
+ * confirmation request or confirmation email.
  * If it's a confirmational mail a hash code is generated, an URL is generated
  * out of the hash and the "%confirm_url" is replaced in the email by this generated
  * confirmation URL.
- * If it's a conditional email, the email is stopped from being send; This is because
+ * If it's a confirmation email, the email is stopped from being send; This is because
  * after a webform submission the webform module would send all emails that are
- * registered for this form; but we want the conditional email to be send only when
- * the user uses the confirmation link that is send to him/her in the confirmation email.
+ * registered for this form; but we want the confirmation email to be send only when
+ * the user uses the confirmation link that is send to him/her in the confirmation request email.
  *
  * @param $message
  */
@@ -182,97 +166,96 @@ function webform_confirm_email_mail_alter(&$message) {
 }
 
 /**
- * This function is the callback for the confirmation-code URL that
+ * callback function that is set in hook_menu().
+ * This function is called when a user clicks on the confirmation URL that
  * a submitee gets via email after the 1st submission.
  * If the submission code is found the confirmation mail is send and
  * the submission record is removed from the DB
  */
-function webform_confirm_email_response_form($node,
-                                             $submission,
-                                             $eid,
-                                             $code) {
+function webform_confirm_email_confirmation($node,
+                                            $submission,
+                                            $eid,
+                                            $code) {
 
   if (   !empty($code)
-    && webform_confirm_email_generate_key($node->nid, $submission->sid, $eid) == $code) {
+      && webform_confirm_email_generate_key($node->nid, $submission->sid, $eid) == $code) {
 
     db_delete('webform_confirm_email_code')
       ->condition('nid', $node->nid)
       ->condition('sid', $submission->sid)
       ->condition('eid', $eid)
       ->execute();
-    $email_message = db_query(
-      'SELECT email_message ' .
+    $email_messages = db_query(
+      'SELECT eid, email_message ' .
       '  FROM {webform_confirm_email_confirmation_emails} ' .
       '    WHERE nid = :nid ' .
-      '    AND   sid = :sid ' .
-      '    AND   eid = :eid ',
+      '    AND   sid = :sid ' ,
       array(
         ':nid' => $node->nid,
         ':sid' => $submission->sid,
-        ':eid' => $eid,
       )
-    )->fetchFiedl();
+    )->fetchAllKeyed();
 
-    $email_message = unserialize($email_message);
-    // Concatenate and wrap the e-mail body.
-    if (is_array($email_message['body'])) {
-      $email_message['body'] = implode("\n\n", $email_message['body']);
+    foreach ($email_messages as $email_message) {
+      $email_message = unserialize($email_message);
+      // Concatenate and wrap the e-mail body.
+      if (is_array($email_message['body'])) {
+        $email_message['body'] = implode("\n\n", $email_message['body']);
+      }
+
+      $email_message['params']['webform_confirm_email_confirmation_send'] = TRUE;
+
+      // this function from the webform module sets HTML support for
+      // the mimemail module
+      webform_email_html_capable();
+
+      $email_message = drupal_mail(
+        $email_message['module'],
+        $email_message['key'],
+        $email_message['to'],
+        $email_message['language'],
+        $email_message['params'],
+        $email_message['from'],
+        TRUE
+      );
+
+      if ($email_message['result'] == FALSE) {
+        watchdog(
+          'mail',
+          'Error sending e-mail (from %from to %to).',
+          array(
+            '%from' => $email_message['from'],
+            '%to'   => $email_message['to']
+          ),
+          WATCHDOG_ERROR
+        );
+        drupal_set_message(t(
+            'Unable to send e-mail. ' .
+            'Please contact the site administrator if the problem persists.'
+          ),
+          'error'
+        );
+      }
     }
-
-    $email_message['params']['webform_confirm_email_confirmation_send'] = TRUE;
-
-    // this function from the webform module sets HTML support for
-    // the mimemail module
-    webform_email_html_capable();
-
-    $email_message = drupal_mail(
-      $email_message['module'],
-      $email_message['key'],
-      $email_message['to'],
-      $email_message['language'],
-      $email_message['params'],
-      $email_message['from'],
-      TRUE
-    );
-
-    if ($email_message['result'] == TRUE) {
-      $codes_left_to_be_confirmed = db_query(
-        'SELECT nid ' .
-        '  FROM {webform_confirm_email_code} ' .
-        '    WHERE nid = :nid ' .
-        '    AND   sid = :sid ' ,
+    $codes_left_to_be_confirmed = db_query(
+      'SELECT nid ' .
+      '  FROM {webform_confirm_email_code} ' .
+      '    WHERE nid = :nid ' .
+      '    AND   sid = :sid ' ,
+      array(
+        ':nid' => $node->nid,
+        ':sid' => $submission->sid,
+      )
+    )->fetchField();
+    if ($codes_left_to_be_confirmed == FALSE) {
+      db_query(
+        'DELETE FROM {webform_confirm_email_confirmation_emails} ' .
+        '  WHERE nid = :nid ' .
+        '  AND   sid = :sid ' ,
         array(
           ':nid' => $node->nid,
           ':sid' => $submission->sid,
         )
-      )->fetchField();
-      if ($codes_left_to_be_confirmed == FALSE) {
-        db_query(
-          'DELETE FROM {webform_confirm_email_confirmation_emails} ' .
-          '  WHERE nid = :nid ' .
-          '  AND   sid = :sid ' ,
-          array(
-            ':nid' => $node->nid,
-            ':sid' => $submission->sid,
-          )
-        );
-      }
-    }
-    else {
-      watchdog(
-        'mail',
-        'Error sending e-mail (from %from to %to).',
-        array(
-          '%from' => $email_message['from'],
-          '%to'   => $email_message['to']
-        ),
-        WATCHDOG_ERROR
-      );
-      drupal_set_message(t(
-          'Unable to send e-mail. ' .
-          'Please contact the site administrator if the problem persists.'
-        ),
-        'error'
       );
     }
   }
@@ -280,96 +263,45 @@ function webform_confirm_email_response_form($node,
     'SELECT redirect_url ' .
     '  FROM {webform_confirm_email} ' .
     '    WHERE nid = :nid ' .
-    '    AND   sid = :sid ',
     '    AND   eid = :eid ',
     array(
       ':nid' => $node->nid,
-      ':sid' => $submission->sid,
       ':eid' => $eid,
     )
   )->fetchField();
 
-  if ($redirect_url == FALSE) {
-    drupal_not_found();
-  }
-  else {
-    drupal_goto(
-      $redirect_url,
-      array(
-        'query' => array(
-          'share' => 'node/' . $node->nid,
-        ),
-      )
-    );
-  }
-}
-
-/**
- * This function builds the confirmation form that a user reaches
- * when he/she followes the link provided in the confirmation email.
- * The submit callback function, that is set here, will later take
- * care of sending the conditional email.
- */
-function _webform_confirm_email_confirmed_form_submit($form, $form_state, $nid, $sid, $code) {
-  if (empty($code)) {
-    return array(
-      'ha' => array(
-        '#type'  => 'markup',
-        '#value' => "Missing code, what are you trying to pull!?",
-      )
-    );
+  if ($redirect_url == NULL) {
+    if (empty($node->webform['redirect_url']) == TRUE) {
+      drupal_not_found();
+    }
+    elseif (   $node->webform['redirect_url'] == '<confirmation>'
+            || $node->webform['redirect_url'] == '<none>') {
+      $redirect_url = 'node/' . $node->nid . '/done';
+    }
+    else {
+      $redirect_url = $node->webform['redirect_url'];
+    }
   }
 
-  if (webform_confirm_email_generate_key($nid->nid, $sid->sid, $eid) != $code) {
-    return array(
-      'ha' => array(
-        '#type'  => 'markup',
-        '#value' => t('Invalid code.')
-      )
-    );
-  }
-
-  $form = array(
-    'nid' => array(
-      '#type'  => 'value',
-      '#value' => $nid->nid,
-    ),
-    'sid' => array(
-      '#type'  => 'value',
-      '#value' => $sid->sid,
-    ),
-    '#submit' => array('_webform_confirm_email_confirmed_form_submit'),
-  );
-
-  $question    = t('Confirm your email address?');
-  $description = t(
-    'You are here to confirm your email address to complete a form submission process. ' .
-    'You can ackowledge this was you, click no to report the abuse of your email address ' .
-    'or ignore this form knowing no email messages were sent from our site in your name.'
-  );
-  $report_abuse_url = 'node/' . $nid->nid . '/report_abuse/' . $sid->sid . "/$code";
-  return confirm_form(
-    $form,
-    $question,
-    $report_abuse_url,
-    $description,
-    t('Yes, that was me.'),
-    t('No, someone is using my email address without my knowledge.')
+  drupal_goto(
+    $redirect_url,
+    array(
+      'query' => array(
+        'share' => 'node/' . $node->nid,
+      ),
+    )
   );
 }
-
 
 /**
  * Implements hook_menu().
- * The callback function is registered here to handle all page requests
- * with confirmation hash codes in the URL
  */
 function webform_confirm_email_menu() {
   return array(
     'node/%webform_menu/sid/%webform_menu_submission/eid/%/confirm_email/%' => array(
       'title'           => 'Submit email confirmation',
       'load arguments'  => array(1),
-      'page callback'   => 'webform_confirm_email_response_form',
+      'page callback'   => 'webform_confirm_email_confirmation',
       'page arguments'  => array(1, 3, 5, 7),
       'access callback' => TRUE,
       'type'            => MENU_CALLBACK,
@@ -410,23 +342,5 @@ function webform_confirm_email_menu() {
       'access arguments' => array('update', 1),
       'type'             => MENU_CALLBACK,
     ),
-    //FIXME
-    //We're not doing anything helpful with this right now.
-    'node/%webform_menu/report_abuse/%webform_menu_submission/%' => array(
-      'title'           => 'Report abuse regarding email confirmation',
-      'load arguments'  => array(1),
-      'page callback'   => 'webform_confirm_email_report_abuse',
-      'page arguments'  => array(1, 3, 4),
-      'access callback' => TRUE,
-      'type'            => MENU_CALLBACK,
-    ),
   );
-}
-
-/**
- * Report abuse callback function, currently not implemented
- */
-function webform_confirm_email_report_abuse() {
-  return t('Sorry, not implemented yet. Try <a href="/contact">contact</a>.');
-  //FIXME
 }
