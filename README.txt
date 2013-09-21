@@ -1,59 +1,70 @@
-How to use
-==========
-*Depends on Webform 7.x-3.x. Please skip to the end of this document if you are upgrading from a previous version of Webform_confirm_email.*
+Purpose of this module
+======================
 
-Webform_confirm_email is a simple addon module for Webform. By default, Webform allows a form creator to define email messages to be sent under some circumstances. Webform_confirm_email lets you specify if certain messages should only be sent after another email address has been confirmed.
+webform_confirm_email is a simple addon module for webform. If you define an email in webform (eg. mydomain.net/node/9999/webform/emails) this email/these emails will be send immediately when the user clicked the webform submit button.
+This module allows you to send a 1st email to the email address the user specified in the webform asking him/her to click on a link (the 2nd will not be send). If the user used the link a 2nd email is send. Using this method you can ensure that the email address the user entered is a valid one.
 
-Example: Letter writing campaign
-================================
-Given a webform with these 5 components:
+Example 1: Letter writing campaign
+==================================
 
-* From email
-* From name
-* To email
-* Hard-coded email text
-* Optional email text
+The administrator creates a webform where a user can participate in a letter campaign. The webform contains name and email fields for the user to enter. Further, the administrator defines 2 emails, the first email will be send to the email address the user provided in the webform, the 2nd will be send to the letter writing email target.
 
-The hard-coded email text would be the main body of the letter. The optional email text would suggest more text but would be editable by the user.
+When a user submits a webform, he/she receives a 1st email message containing a link that should be followed to confirm the correctness of his/her email address.
 
-From email and name are the user's. To email is the destination address where the letter is sent. The letter will appear to be sent from the user's name and email, but only after the user confirm it is in fact his email address.
+When the user uses the confirmation link, the 2nd email will be send to the letterr writing email target.
 
-When a user submits a letter, he receives an email message containing a link he must follow to confirm he can at least read messages for the email he gave.
+Example 2: Online petition
+==========================
 
-When the user follows the confirmation link, he is asked (again) to confirm he is indeed completing the letter campaign process.
+The administrator creates a webform where a user can participate in an online petition. The webform contains name and email fields for the user to enter. Further, the administrator defines 2 emails, the first email will be send to the email address the
+user provided in the webform, the 2nd will also be send to the user with a short thank you for participating note.
 
-Only when he clicks yes to confirm his email address will the letter actually be sent to destination, using the user's name and email as the source.
+When a user submits a webform, he/she receives a 1st email message containing a link that should be followed to confirm the correctness of his/her email address.
 
-The user can also click no to report abuse but that feature isn't complete yet. I'm open to suggestions.
-
+When the user uses the confirmation link, he/she will receive the 2n email with the thank you note. Further his/her submission can be inserted into the list of petition signers with valid email addresses.
 
 Configuration
 =============
-You will only notice it is installed when visiting a Webform Emails tab. This is where Webform lets you specify messages to send. Webform_confirm_email adds 3 radio buttons for each defined message. Without it or by default, messages are always sent. Webform_confirm_email provides 2 new choices:
+You will only notice it is installed when visiting a webform emails configuration tab. That is, if your webform is defined on a node with node ID 19, you'll find the settings by "http://mydomain.net/node/19/webform/emails".
+With webform_confirm_email installed you'll see 3 email tables instead of 1, one table for "standard emails", one for "confirmation request emails" and one for "confirmation emails". 
 
-* **Confirmation**
-* **Conditional**
+The "standard emails" behave just like normal webform emails, "confirmation reques emails" are send to users asking them to click on a confirmation link and "confirmation emails" are send only when the confirmation link was used.
 
-Check **Confirmation** if you want this message to be sent in all cases. Make sure its template includes the *%confirm_url* token. This turns into the URL a user needs to click to confirm he holds a given email address.
+The forms for changing the 3 different webform email settings (from address, from name, to address, to name, ...) is the same as the webform email settings form.
+The only difference is in the 2nd email type, the "confirmation request email", where you have an added entry in the "Token values" list, here you'll find the %confirm_url token that should be used in confirmation request emails. This token will be expanded to the confirmation link. So as an example the content of your "E-mail template" could look like this:
 
-Check **Conditional** if you want a message to be sent only after an email address is confirmed. If you make a message **Conditional** make sure there is at least another message configured as a **Confirmation**, otherwise your **Conditional** message will never get sent.
+"Hallo %value[first_name] %value[last_name],
 
-Any **Confirmation** will send all **Conditional** messages.
+  please visit the link below to confirm your submission.
 
-Email message contents (templates) are configured as usual, through the Webform interface.
+%confirm_url
 
-Updating / Installing
-=====================
-It doesn't handle updating from earlier versions. You must disable and uninstall webform_confirm_email completely (Drupal should remove its database tables) before proceeding. It's a good idea to completely remove the module folder after you uninstalled it.
+Thank you!
 
-Untar the module and upload it to your site like any other module. Enable it. It should create a few database tables.
+Your petition team"
 
-Todo
-====
-* Confirmation A or B for Conditional B
-* Confirmation C and B for Conditional B
-* Other configurations
-* Presets
-* Report abuse feature
-* ...
+Installing
+==========
+
+Nothing special, if you're using drush that would be
+
+drush dl webform_confirm_email
+
+drush en webform_confirm_email -y
+
+Updating
+========
+No updates are provided for all pre 7.x-1.0 versions.
+
+From 7.x-1.0 onwards the will be a continues update path whith updates for releases that change the database structure.
+
+Todo/Plans
+==========
+* add configurable cron support for expiring (=deleting) old confirmation requests that haven't been confirmed
+* provide hook for the event of expired/deleted confirmation requests
+* change webform submission result table to filter for confirmed/not confirmed submissions
+* add hook for "submission has been confirmed" events
+* add rules event for "submission has been confirmed" events
+* webform 4 support
+* drupal 8 support
 
