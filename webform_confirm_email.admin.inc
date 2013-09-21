@@ -6,9 +6,9 @@
  * @copyright Copyright (c) 2013 copyright
  */
 
-const WEBFORM_CONFIRM_EMAIL_STANDARD             = 0;
-const WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST = 1;
-const WEBFORM_CONFIRM_EMAIL_CONFIRMATION         = 2;
+define("WEBFORM_CONFIRM_EMAIL_STANDARD",             0);
+define("WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST", 1);
+define("WEBFORM_CONFIRM_EMAIL_CONFIRMATION"        , 2);
 
 /**
  * Implements hook_webform_component_delete().
