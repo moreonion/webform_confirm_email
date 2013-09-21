@@ -477,13 +477,13 @@ function theme_webform_confirm_email_emails_form($variables) {
     else {
       switch($email_type) {
         case 'emails':
-          $no_email_comment = t('Currently not sending standard e-mails, add an e-mail recipient below.');
+          $no_email_comment = t('Currently not sending standard e-mails, add standard email by clicking the button below.');
           break;
         case 'confirmation_request':
-          $no_email_comment = t('Currently not sending confirmation request e-mails, add an e-mail recipient below.');
+          $no_email_comment = t('Currently not sending confirmation request e-mails, add confirmation request email by clicking the button below.');
           break;
         case 'confirmation':
-          $no_email_comment = t('Currently not sending confirmation e-mails, add an e-mail recipient below.');
+          $no_email_comment = t('Currently not sending confirmation e-mails, add confirmation email by clicking the button below.');
           break;
       }
       $rows[] = array(array('data' => $no_email_comment, 'colspan' => 5));
