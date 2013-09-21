@@ -102,66 +102,68 @@ function webform_confirm_email_generate_key($nid, $sid, $eid, $email = NULL) {
  * @param $message
  */
 function webform_confirm_email_mail_alter(&$message) {
-  $email_type = webform_confirm_email_get_email_type($message['params']['node']->nid, $message['params']['email']['eid']);
-  $nid = (int) ($message['params']['node']->nid);
-  $sid = (int) ($message['params']['submission']->sid);
-  $eid = (int) $message['params']['email']['eid'];
-  $obj = array(
-    'nid' => $nid,
-    'sid' => $sid,
-    'eid' => $eid,
-  );
-  if ($email_type == WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST) {
-    $obj['email']    = $message['to'];
-    $obj['code']     = webform_confirm_email_generate_key($nid, $sid, $eid, $obj['email']);
-    $confirm_url = url(
-      "node/$nid/sid/$sid/eid/$eid/confirm_email/" . $obj['code'],
-      array(
-        'absolute' => TRUE,
-        'external' => FALSE,
-      )
+  if (!empty($message['params']['node']) && !empty($message['params']['submission'])) {
+    $email_type = webform_confirm_email_get_email_type($message['params']['node']->nid, $message['params']['email']['eid']);
+    $nid = (int) ($message['params']['node']->nid);
+    $sid = (int) ($message['params']['submission']->sid);
+    $eid = (int) $message['params']['email']['eid'];
+    $obj = array(
+      'nid' => $nid,
+      'sid' => $sid,
+      'eid' => $eid,
     );
-
-    if (   isset($message['params']['email']['html']) == TRUE
-        && $message['params']['email']['html'] == TRUE) {
-      $confirm_url = '<a href="' . $confirm_url . '">' . $confirm_url . '</a>';
-    }
-    foreach ($message['body'] as $i => $b) {
-      $message['body'][$i] = str_replace('%confirm_url', $confirm_url, $b);
-    }
-
-    $result = db_query(
-      'SELECT nid ' .
-      '  FROM {webform_confirm_email_code} ' .
-      '    WHERE nid = :nid ' .
-      '    AND   sid = :sid ' .
-      '    AND   eid = :eid ' ,
-      array(
-        ':nid' => $nid,
-        ':sid' => $sid,
-        ':eid' => $eid,
-      )
-    )->fetchField();
-
-    if ($result != FALSE) {
-      // mail was resend -> update record
-      drupal_write_record(
-        'webform_confirm_email_code',
-        $obj,
-        array('nid', 'sid', 'eid')
+    if ($email_type == WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST) {
+      $obj['email']    = $message['to'];
+      $obj['code']     = webform_confirm_email_generate_key($nid, $sid, $eid, $obj['email']);
+      $confirm_url = url(
+        "node/$nid/sid/$sid/eid/$eid/confirm_email/" . $obj['code'],
+        array(
+          'absolute' => TRUE,
+          'external' => FALSE,
+        )
       );
+
+      if (   isset($message['params']['email']['html']) == TRUE
+        && $message['params']['email']['html'] == TRUE) {
+        $confirm_url = '<a href="' . $confirm_url . '">' . $confirm_url . '</a>';
+      }
+      foreach ($message['body'] as $i => $b) {
+        $message['body'][$i] = str_replace('%confirm_url', $confirm_url, $b);
+      }
+
+      $result = db_query(
+        'SELECT nid ' .
+        '  FROM {webform_confirm_email_code} ' .
+        '    WHERE nid = :nid ' .
+        '    AND   sid = :sid ' .
+        '    AND   eid = :eid ' ,
+        array(
+          ':nid' => $nid,
+          ':sid' => $sid,
+          ':eid' => $eid,
+        )
+      )->fetchField();
+
+      if ($result != FALSE) {
+        // mail was resend -> update record
+        drupal_write_record(
+          'webform_confirm_email_code',
+          $obj,
+          array('nid', 'sid', 'eid')
+        );
+      }
+      else {
+        // new mail
+        drupal_write_record('webform_confirm_email_code', $obj);
+      }
     }
-    else {
-      // new mail
-      drupal_write_record('webform_confirm_email_code', $obj);
+    elseif (   $email_type == WEBFORM_CONFIRM_EMAIL_CONFIRMATION
+      && isset($message['params']['webform_confirm_email_confirmation_send']) == FALSE) {
+      $obj['email_message'] = $message;
+      $obj['datetime']      = REQUEST_TIME;
+      $message['send']      = FALSE; // prevents drupal_mail from actually sending the message
+      drupal_write_record('webform_confirm_email_confirmation_emails', $obj);
     }
-  }
-  elseif (   $email_type == WEBFORM_CONFIRM_EMAIL_CONFIRMATION
-          && isset($message['params']['webform_confirm_email_confirmation_send']) == FALSE) {
-    $obj['email_message'] = $message;
-    $obj['datetime']      = REQUEST_TIME;
-    $message['send']      = FALSE; // prevents drupal_mail from actually sending the message
-    drupal_write_record('webform_confirm_email_confirmation_emails', $obj);
   }
 }
 
