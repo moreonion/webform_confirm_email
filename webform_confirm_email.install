@@ -1,8 +1,8 @@
 <?php
-
 /**
  * @file
- *   Webform confirm email module install/schema hooks.
+ * @author    Matthias Weiss <matthias@more-onion.com>
+ * @copyright Copyright (c) 2013 copyright
  */
 
 /**

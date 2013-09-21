@@ -1,6 +1,6 @@
 <?php
 /**
- * webform_confirm_email.module
+ * @file
  *
  * @author    Matthias Weiss <matthias@more-onion.com>
  * @copyright Copyright (c) 2013 copyright
@@ -260,6 +260,12 @@ function webform_confirm_email_confirmation($node,
         )
       );
     }
+    // call implementations of hook_email_confirmed
+    module_invoke_all('email_confirmed', $node, $submission);
+    // create a rules event
+    if (module_exists('rules') == TRUE) {
+      rules_invoke_event('email_confirmed', $node, $submission);
+    }
   }
   $redirect_url = db_query(
     'SELECT redirect_url ' .
@@ -345,4 +351,43 @@ function webform_confirm_email_menu() {
       'type'             => MENU_CALLBACK,
     ),
   );
+}
+
+function webform_confirm_email_help($path, $arg) {
+  if ($path === 'admin/help#webform_confirm_email') {
+   return '<h3>Configuration</h3>
+You will only notice it is installed when visiting a webform emails
+configuration tab. That is, if your webform is defined on a node with node ID
+19, you\'ll find the settings by "http://mydomain.net/node/19/webform/emails".
+With webform_confirm_email installed you\'ll see 3 email tables instead of 1,
+one table for "standard emails", one for "confirmation request emails" and one
+for "confirmation emails".
+<br>
+<br>
+The "standard emails" behave just like normal webform emails, "confirmation
+reques emails" are send to users asking them to click on a confirmation link
+and "confirmation emails" are send only when the confirmation link was used.
+<br>
+<br>
+The forms for changing the 3 different webform email settings (from address,
+from name, to address, to name, ...) is the same as the webform email settings
+form.  The only difference is in the 2nd email type, the "confirmation request
+email", where you have an added entry in the "Token values" list, here you\'ll
+find the %confirm_url token that should be used in confirmation request emails.
+This token will be expanded to the confirmation link. So as an example the
+content of your "E-mail template" could look like this:
+<br>
+<br>
+"Hallo %value[first_name] %value[last_name],
+<br>
+<br>
+<p style="text-indent:2em;">please visit the link below to confirm your submission.</p>
+%confirm_url
+<br>
+<br>
+Thank you!
+<br>
+<br>
+Your petition team"';
+  }
 }
