@@ -158,9 +158,10 @@ function webform_confirm_email_mail_alter(&$message) {
       }
     }
     elseif (   $email_type == WEBFORM_CONFIRM_EMAIL_CONFIRMATION
-      && isset($message['params']['webform_confirm_email_confirmation_send']) == FALSE) {
+            && isset($message['params']['webform_confirm_email_confirmation_send']) == FALSE) {
       $obj['email_message'] = $message;
       $obj['datetime']      = REQUEST_TIME;
+      unset($obj['eid']);
       $message['send']      = FALSE; // prevents drupal_mail from actually sending the message
       drupal_write_record('webform_confirm_email_confirmation_emails', $obj);
     }
@@ -188,7 +189,7 @@ function webform_confirm_email_confirmation($node,
       ->condition('eid', $eid)
       ->execute();
     $email_messages = db_query(
-      'SELECT eid, email_message ' .
+      'SELECT email_message ' .
       '  FROM {webform_confirm_email_confirmation_emails} ' .
       '    WHERE nid = :nid ' .
       '    AND   sid = :sid ' ,
@@ -196,7 +197,7 @@ function webform_confirm_email_confirmation($node,
         ':nid' => $node->nid,
         ':sid' => $submission->sid,
       )
-    )->fetchAllKeyed();
+    )->fetchCol();
 
     foreach ($email_messages as $email_message) {
       $email_message = unserialize($email_message);
@@ -350,9 +351,21 @@ function webform_confirm_email_menu() {
       'access arguments' => array('update', 1),
       'type'             => MENU_CALLBACK,
     ),
+    'node/%webform_menu/webform/confirmation-settings' => array(
+      'title'            => t('Confirmation mail settings'),
+      'page callback'    => 'drupal_get_form',
+      'page arguments'   => array('webform_confirm_email_settings', 1),
+      'access callback'  => 'node_access',
+      'access arguments' => array('update', 1),
+      'weight'           => 2,
+      'type'             => MENU_LOCAL_TASK,
+    ),
   );
 }
 
+/**
+ * Implements hook_help().
+ */
 function webform_confirm_email_help($path, $arg) {
   if ($path === 'admin/help#webform_confirm_email') {
    return '<h3>Configuration</h3>
@@ -389,5 +402,51 @@ Thank you!
 <br>
 <br>
 Your petition team"';
+  }
+}
+
+/**
+ * Implements hook_cron().
+ */
+function webform_confirm_email_cron() {
+  // get all node id's that we have to check for expired requests
+  $nids = db_query(
+    'SELECT DISTINCT(nid) ' .
+    ' FROM {webform_confirm_email_confirmation_emails} '
+  )->fetchCol();
+
+  if ($nids) {
+    // get a nid -> lifetime mapping
+    $nids_lifetime = db_query(
+      'SELECT nid, request_lifetime ' .
+      '  FROM {webform_confirm_email} ' .
+      '    WHERE nid IN (:nids) ' .
+      '  GROUP BY nid ' ,
+      array(':nids' => $nids)
+    )->fetchAllKeyed();
+
+    if (!empty($nids_lifetime)) {
+      foreach ($nids_lifetime as $nid => $lifetime) {
+        // calculate the oldets timestamp that is still not expired
+        // for this nid;
+        $timestamp = REQUEST_TIME - $lifetime;
+
+        // delete requests from both tables (webform_confirm_email_code,
+        // webform_confirm_email_confirmation_emails) at once via JOIN
+        db_query(
+          'DELETE code, conf ' .
+          '  FROM {webform_confirm_email_confirmation_emails} conf' .
+          '  LEFT JOIN {webform_confirm_email_code} code ' .
+          '    ON  conf.nid = code.nid ' .
+          '    AND conf.sid = code.sid ' .
+          '  WHERE conf.nid = :nid ' .
+          '  AND   conf.datetime < :oldest ' ,
+          array(
+            ':nid'    => $nid,
+            ':oldest' => $timestamp,
+          )
+        );
+      }
+    }
   }
 }
