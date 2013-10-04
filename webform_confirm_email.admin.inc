@@ -6,7 +6,7 @@
  * @copyright Copyright (c) 2013 copyright
  */
 
-define("WEBFORM_CONFIRM_EMAIL_STANDARD",             0);
+define("WEBFORM_CONFIRM_EMAIL_STANDARD"            , 0);
 define("WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST", 1);
 define("WEBFORM_CONFIRM_EMAIL_CONFIRMATION"        , 2);
 
@@ -477,13 +477,13 @@ function theme_webform_confirm_email_emails_form($variables) {
     else {
       switch($email_type) {
         case 'emails':
-          $no_email_comment = t('Currently not sending standard e-mails, add standard email by clicking the button below.');
+          $no_email_comment = t('Currently not sending standard e-mails, add a standard email by clicking the button below.');
           break;
         case 'confirmation_request':
-          $no_email_comment = t('Currently not sending confirmation request e-mails, add confirmation request email by clicking the button below.');
+          $no_email_comment = t('Currently not sending confirmation request e-mails, add a confirmation request email by clicking the button below.');
           break;
         case 'confirmation':
-          $no_email_comment = t('Currently not sending confirmation e-mails, add confirmation email by clicking the button below.');
+          $no_email_comment = t('Currently not sending confirmation e-mails, add a confirmation email by clicking the button below.');
           break;
       }
       $rows[] = array(array('data' => $no_email_comment, 'colspan' => 5));
@@ -543,4 +543,126 @@ function theme_webform_confirm_email_email_add_form($form) {
   }
 
   return drupal_render($form);
+}
+
+function webform_confirm_email_settings($form, &$form_state, $node) {
+
+  $lifetime = array(
+    'days'    => NULL,
+    'hours'   => NULL,
+    'minutes' => NULL,
+  );
+  if (!empty($node)) {
+    $form['#node'] = $node;
+
+    $request_lifetime = (int) db_query(
+      'SELECT request_lifetime ' .
+      '  FROM {webform_confirm_email} ' .
+      '    WHERE nid = :nid ' .
+      '  LIMIT 1 ' ,
+      array(':nid' => $node->nid)
+    )->fetchField();
+
+    if ($request_lifetime) {
+      $lifetime['days']    = (int) ($request_lifetime / 86400);
+      $lifetime['hours']   = (int)(($request_lifetime % 86400) / 3600);
+      $lifetime['minutes'] = (int)(($request_lifetime % 86400) % 3600) / 60;
+      foreach (array('days', 'hours', 'minutes') as $key) {
+        if ($lifetime[$key] == 0) {
+          $lifetime[$key] = NULL;
+        }
+      }
+    }
+  }
+
+   $form['request_lifetime'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('Confirmation Request Lifetime'),
+    '#description' => t('Specify the lifetime of confirmation request before they get deleted automatically. To not delete any requests leave fields blank.'),
+    '#collapsible' => TRUE,
+    '#collapsed'   => FALSE,
+    '#weight'      => 0,
+  );
+
+  $form['request_lifetime']['days'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Days'),
+    //'#description' => t('Confirmation request life time in days'),
+    '#maxlength'     => 3,
+    '#size'          => 3,
+    '#default_value' => $lifetime['days'],
+  );
+  $form['request_lifetime']['hours'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Hours'),
+    //'#description' => t('Confirmation request life time in hours'),
+    '#maxlength'     => 2,
+    '#size'          => 2,
+    '#default_value' => $lifetime['hours'],
+  );
+  $form['request_lifetime']['minutes'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Minutes'),
+    //'#description' => t('Confirmation request life time in minutes'),
+    '#maxlength'     => 2,
+    '#size'          => 2,
+    '#default_value' => $lifetime['minutes'],
+  );
+
+  $form['actions'] = array(
+    '#type'   => 'actions',
+    '#weight' => 3,
+  );
+
+  $form['actions']['submit'] = array(
+    '#type'  => 'submit',
+    '#value' => t('Save configuration'),
+  );
+
+  return $form;
+}
+
+function webform_confirm_email_settings_validate($form, &$form_state) {
+
+  foreach(array('days', 'hours', 'minutes') as $field_name) {
+    if (   !empty($form_state['values'][$field_name])
+        && preg_match('/^\d*$/', $form_state['values'][$field_name]) != 1) {
+      form_error($form['request_lifetime'][$field_name], t('The entered value %value is not a number.', array('%value' => $form_state['values'][$field_name])));
+    }
+  }
+  if (   !empty($form_state['values']['hours'])
+      && (int) $form_state['values']['hours'] > 23) {
+    form_error($form['request_lifetime']['hours'], t('Hours must be smaller than 24.'));
+  }
+  if (   !empty($form_state['values']['minutes'])
+      && (int) $form_state['values']['minutes'] > 59) {
+    form_error($form['request_lifetime']['minutes'], t('Minutes must be smaller than 60.'));
+  }
+}
+
+function webform_confirm_email_settings_submit($form, &$form_state) {
+  if (!empty($form['#node'])) {
+    $lifetime = 0;
+    if (!empty($form_state['values']['days'])) {
+      $lifetime += (int) $form_state['values']['days'] * 86400;
+    }
+    if (!empty($form_state['values']['hours'])) {
+      $lifetime += (int) $form_state['values']['hours'] * 3600;
+    }
+    if (!empty($form_state['values']['minutes'])) {
+      $lifetime += (int) $form_state['values']['minutes'] * 60;
+    }
+
+    db_query(
+      'UPDATE {webform_confirm_email} ' .
+      '  SET request_lifetime = :lifetime ' .
+      '  WHERE nid = :nid ' ,
+      array(
+        ':lifetime' => $lifetime,
+        ':nid'      => $form['#node']->nid,
+      )
+    );
+
+    drupal_set_message(t('The confirmation mail settings have been updated.'));
+  }
 }
