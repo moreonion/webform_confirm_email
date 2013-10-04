@@ -55,7 +55,7 @@ configuration tab. That is, if your webform is defined on a node with node ID
 19, you'll find the settings by "http://mydomain.net/node/19/webform/emails".
 With webform_confirm_email installed you'll see 3 email tables instead of 1,
 one table for "standard emails", one for "confirmation request emails" and one
-for "confirmation emails". 
+for "confirmation emails".
 
 The "standard emails" behave just like normal webform emails, "confirmation
 reques emails" are send to users asking them to click on a confirmation link
@@ -102,7 +102,7 @@ Todo/Plans
   expired/deleted confirmation requests
 * change webform submission result table to filter for confirmed/not confirmed
   submissions * add hook for "submission has been confirmed" events
-* add rules event for "submission has been confirmed" events
+* provide better confirmation request email body template
 * webform 4 support
 * drupal 8 support
 
