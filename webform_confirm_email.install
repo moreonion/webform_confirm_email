@@ -57,12 +57,6 @@ function webform_confirm_email_schema() {
         'unsigned'    => TRUE,
         'not null'    => TRUE,
       ),
-      'eid' => array(
-        'description' => 'The e-mail ID of a webform submission to be confirmed.',
-        'type'        => 'int',
-        'unsigned'    => TRUE,
-        'not null'    => TRUE,
-      ),
       'datetime' => array(
         'description' => 'Creation timestamp used for cron job cleanup of confirmation mails that exceeded their storage lifetime set by the admin',
         'type'        => 'int',
@@ -75,7 +69,10 @@ function webform_confirm_email_schema() {
         'serialize'   => TRUE,
       ),
     ),
-    'primary key' => array('nid', 'sid', 'eid'),
+    'indexes' => array(
+      'webform_confirm_email_confirmation_emails_nidsid_index'   => array('nid', 'sid'),
+      'webform_confirm_email_confirmation_emails_datetime_index' => array('datetime'),
+    ),
   );
 
   $schema['webform_confirm_email'] = array(
@@ -106,6 +103,11 @@ function webform_confirm_email_schema() {
         'description' => 'The page that is called after the submitee confirmed his/her submission.',
         'type'        => 'varchar',
         'length'      => 255,
+        'not null'    => FALSE,
+      ),
+      'request_lifetime' => array(
+        'description' => 'Time in seconds after which an unconfirmed confirmation request may be deleted for this webform. NULL means don\'t delete requests',
+        'type'        => 'int',
         'not null'    => FALSE,
       ),
     ),
@@ -145,5 +147,43 @@ function _webform_confirm_email_set_module_weight() {
         AND b.name = 'mimemail'
       SET a.weight = b.weight + 1
 EOS
+  );
+}
+
+// *****************************************
+// **************** UPDATES ****************
+// *****************************************
+
+/**
+ * Add database field request_lifetime to webform_confirm_email table
+ *
+ * remove unused database field eid from
+ * webform_confirm_email_confirmation_emails table
+ */
+function webform_confirm_email_update_7001() {
+  db_add_field(
+    'webform_confirm_email',
+    'request_lifetime',
+    array(
+      'type'        => 'int',
+      'description' => 'Time in seconds after which an unconfirmed confirmation request may be deleted for this webform. NULL means don\'t delete any requests',
+      'not null'    => FALSE,
+    )
+  );
+
+  db_drop_primary_key('webform_confirm_email_confirmation_emails');
+
+  db_drop_field('webform_confirm_email_confirmation_emails', 'eid');
+
+  db_add_index(
+    'webform_confirm_email_confirmation_emails',
+    'webform_confirm_email_confirmation_emails_nidsid_index',
+    array('nid', 'sid')
+  );
+
+  db_add_index(
+    'webform_confirm_email_confirmation_emails',
+    'webform_confirm_email_confirmation_emails_datetime_index',
+    array('datetime')
   );
 }
