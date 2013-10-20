@@ -115,6 +115,7 @@ function webform_confirm_email_mail_alter(&$message) {
     if ($email_type == WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST) {
       $obj['email']    = $message['to'];
       $obj['code']     = webform_confirm_email_generate_key($nid, $sid, $eid, $obj['email']);
+      $obj['datetime'] = REQUEST_TIME;
       $confirm_url = url(
         "node/$nid/sid/$sid/eid/$eid/confirm_email/" . $obj['code'],
         array(
@@ -160,9 +161,8 @@ function webform_confirm_email_mail_alter(&$message) {
     elseif (   $email_type == WEBFORM_CONFIRM_EMAIL_CONFIRMATION
             && isset($message['params']['webform_confirm_email_confirmation_send']) == FALSE) {
       $obj['email_message'] = $message;
-      $obj['datetime']      = REQUEST_TIME;
       unset($obj['eid']);
-      $message['send']      = FALSE; // prevents drupal_mail from actually sending the message
+      $message['send'] = FALSE; // prevents drupal_mail from actually sending the message
       drupal_write_record('webform_confirm_email_confirmation_emails', $obj);
     }
   }
@@ -412,7 +412,7 @@ function webform_confirm_email_cron() {
   // get all node id's that we have to check for expired requests
   $nids = db_query(
     'SELECT DISTINCT(nid) ' .
-    ' FROM {webform_confirm_email_confirmation_emails} '
+    ' FROM {webform_confirm_email_code} '
   )->fetchCol();
 
   if ($nids) {
@@ -421,6 +421,7 @@ function webform_confirm_email_cron() {
       'SELECT nid, request_lifetime ' .
       '  FROM {webform_confirm_email} ' .
       '    WHERE nid IN (:nids) ' .
+      '    AND   request_lifetime IS NOT NULL ' .
       '  GROUP BY nid ' ,
       array(':nids' => $nids)
     )->fetchAllKeyed();
@@ -435,12 +436,12 @@ function webform_confirm_email_cron() {
         // webform_confirm_email_confirmation_emails) at once via JOIN
         db_query(
           'DELETE code, conf ' .
-          '  FROM {webform_confirm_email_confirmation_emails} conf' .
-          '  LEFT JOIN {webform_confirm_email_code} code ' .
-          '    ON  conf.nid = code.nid ' .
-          '    AND conf.sid = code.sid ' .
-          '  WHERE conf.nid = :nid ' .
-          '  AND   conf.datetime < :oldest ' ,
+          '  FROM {webform_confirm_email_code} code ' .
+          '  LEFT JOIN {webform_confirm_email_confirmation_emails} conf' .
+          '    ON  code.nid = conf.nid ' .
+          '    AND code.sid = conf.sid ' .
+          '  WHERE code.nid = :nid ' .
+          '  AND   code.datetime < :oldest ' ,
           array(
             ':nid'    => $nid,
             ':oldest' => $timestamp,

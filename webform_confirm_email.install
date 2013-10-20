@@ -38,6 +38,11 @@ function webform_confirm_email_schema() {
         'length'      => 32,
         'not null'    => TRUE,
       ),
+      'datetime' => array(
+        'description' => 'Creation timestamp used for cron job cleanup of confirmation mails that exceeded their storage lifetime set by the admin',
+        'type'        => 'int',
+        'not null'    => TRUE,
+      ),
     ),
     'primary key' => array('nid', 'sid', 'eid'),
   );
@@ -57,11 +62,6 @@ function webform_confirm_email_schema() {
         'unsigned'    => TRUE,
         'not null'    => TRUE,
       ),
-      'datetime' => array(
-        'description' => 'Creation timestamp used for cron job cleanup of confirmation mails that exceeded their storage lifetime set by the admin',
-        'type'        => 'int',
-        'not null'    => TRUE,
-      ),
       'email_message' => array(
         'description' => 'The confirmation email that will be send once th confirmation URL is used',
         'type'        => 'text',
@@ -71,8 +71,7 @@ function webform_confirm_email_schema() {
     ),
     'indexes' => array(
       'webform_confirm_email_confirmation_emails_nidsid_index'   => array('nid', 'sid'),
-      'webform_confirm_email_confirmation_emails_datetime_index' => array('datetime'),
-    ),
+   ),
   );
 
   $schema['webform_confirm_email'] = array(
@@ -140,13 +139,13 @@ function webform_confirm_email_modules_enabled($modules) {
  * to be higher than that of the mimemail module
  */
 function _webform_confirm_email_set_module_weight() {
-  db_query(<<<EOS
+  db_query(<<<SQL
     UPDATE system a
       INNER JOIN system b
         ON  a.name = 'webform_confirm_email'
         AND b.name = 'mimemail'
       SET a.weight = b.weight + 1
-EOS
+SQL
   );
 }
 
@@ -171,9 +170,29 @@ function webform_confirm_email_update_7001() {
     )
   );
 
+  db_add_field(
+    'webform_confirm_email_code',
+    'datetime',
+    array(
+      'description' => 'Creation timestamp used for cron job cleanup of confirmation mails that exceeded their storage lifetime set by the admin',
+      'type'        => 'int',
+      'not null'    => TRUE,
+    )
+  );
+
+  db_update(<<<SQL
+    UPDATE {webform_confirm_email_code} a
+      LEFT OUTER JOIN {webform_confirm_email_confirmation_emails} b
+        ON  a.nid = b.nid
+        AND a.sid = b.sid
+      SET a.datetime = b.datetime
+SQL
+  );
+
   db_drop_primary_key('webform_confirm_email_confirmation_emails');
 
   db_drop_field('webform_confirm_email_confirmation_emails', 'eid');
+  db_drop_field('webform_confirm_email_confirmation_emails', 'datetime');
 
   db_add_index(
     'webform_confirm_email_confirmation_emails',
@@ -181,9 +200,4 @@ function webform_confirm_email_update_7001() {
     array('nid', 'sid')
   );
 
-  db_add_index(
-    'webform_confirm_email_confirmation_emails',
-    'webform_confirm_email_confirmation_emails_datetime_index',
-    array('datetime')
-  );
 }
