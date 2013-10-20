@@ -176,17 +176,27 @@ function webform_confirm_email_update_7001() {
     array(
       'description' => 'Creation timestamp used for cron job cleanup of confirmation mails that exceeded their storage lifetime set by the admin',
       'type'        => 'int',
-      'not null'    => TRUE,
+      'not null'    => FALSE,
     )
   );
 
-  db_update(<<<SQL
-    UPDATE {webform_confirm_email_code} a
-      LEFT OUTER JOIN {webform_confirm_email_confirmation_emails} b
-        ON  a.nid = b.nid
-        AND a.sid = b.sid
-      SET a.datetime = b.datetime
-SQL
+  db_query(
+    'UPDATE {webform_confirm_email_code} a ' .
+    '  LEFT OUTER JOIN {webform_confirm_email_confirmation_emails} b ' .
+    '    ON  a.nid = b.nid ' .
+    '    AND a.sid = b.sid ' .
+    '  SET a.datetime = b.datetime '
+  );
+
+  db_change_field(
+    'webform_confirm_email_code',
+    'datetime',
+    'datetime',
+    array(
+      'description' => 'Creation timestamp used for cron job cleanup of confirmation mails that exceeded their storage lifetime set by the admin',
+      'type'        => 'int',
+      'not null'    => TRUE,
+    )
   );
 
   db_drop_primary_key('webform_confirm_email_confirmation_emails');
