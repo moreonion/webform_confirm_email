@@ -427,12 +427,15 @@ function webform_confirm_email_cron() {
     )->fetchAllKeyed();
 
     if (!empty($nids_lifetime)) {
+      $expired_sids = array();
+
       foreach ($nids_lifetime as $nid => $lifetime) {
+
         // calculate the oldets timestamp that is still not expired
         // for this nid;
         $timestamp = REQUEST_TIME - $lifetime;
 
-        $expired_sids = db_query(
+        $expired_sids[$nid] = db_query(
           'SELECT DISTINCT sid ' .
           '  FROM {webform_confirm_email_code} ' .
           '    WHERE code.nid = :nid ' .
@@ -443,39 +446,25 @@ function webform_confirm_email_cron() {
           )
         )->fetchAllAssoc();
 
-        // delete requests from both tables (webform_confirm_email_code,
-        // webform_confirm_email_confirmation_emails) at once via JOIN
-        db_query(
-          'DELETE code, conf ' .
-          '  FROM {webform_confirm_email_code} code ' .
-          '  LEFT JOIN {webform_confirm_email_confirmation_emails} conf' .
-          '    ON  code.nid = conf.nid ' .
-          '    AND code.sid = conf.sid ' .
-          '  WHERE code.nid = :nid ' .
-          '  AND   code.sid in (:sids) ' ,
-          array(
-            ':nid'  => $nid,
-            ':sids' => $expired_sids,
-          )
-        );
-
-        $node = node_load($nid);
-        if (module_exists('rules') == TRUE) {
-          foreach ($expired_sids as $sid) {
-            $submission = webform_get_submission($nid, $sid);
-            // call implementations of hook_confirmation_request_expired
-            module_invoke_all('confirmation_request_expired', $node, $submission);
-            // trigger a rules confirmation request expired event
-            rules_invoke_event('confirmation_request_expired', $node, $submission);
-          }
-        }
-        else {
-          foreach ($expired_sids as $sid) {
-            $submission = webform_get_submission($nid, $sid);
-            module_invoke_all('confirmation_request_expired', $node, $submission);
-          }
+        if (!empty($expired_sids[$nid])) {
+          // delete requests from both tables (webform_confirm_email_code,
+          // webform_confirm_email_confirmation_emails) at once via JOIN
+          db_query(
+            'DELETE code, conf ' .
+            '  FROM {webform_confirm_email_code} code ' .
+            '  LEFT JOIN {webform_confirm_email_confirmation_emails} conf' .
+            '    ON  code.nid = conf.nid ' .
+            '    AND code.sid = conf.sid ' .
+            '  WHERE code.nid = :nid ' .
+            '  AND   code.sid in (:sids) ' ,
+            array(
+              ':nid'  => $nid,
+              ':sids' => $expired_sids[$nid],
+            )
+          );
         }
       }
+      module_invoke_all('confirmation_request_expired', $expired_sids);
     }
   }
 }
