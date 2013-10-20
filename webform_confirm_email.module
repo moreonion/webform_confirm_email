@@ -263,7 +263,7 @@ function webform_confirm_email_confirmation($node,
     }
     // call implementations of hook_email_confirmed
     module_invoke_all('email_confirmed', $node, $submission);
-    // create a rules event
+    // trigger a rules email confirmed event
     if (module_exists('rules') == TRUE) {
       rules_invoke_event('email_confirmed', $node, $submission);
     }
@@ -432,6 +432,17 @@ function webform_confirm_email_cron() {
         // for this nid;
         $timestamp = REQUEST_TIME - $lifetime;
 
+        $expired_sids = db_query(
+          'SELECT DISTINCT sid ' .
+          '  FROM {webform_confirm_email_code} ' .
+          '    WHERE code.nid = :nid ' .
+          '    AND   code.datetime < :oldest ' ,
+          array(
+            ':nid'    => $nid,
+            ':oldest' => $timestamp,
+          )
+        )->fetchAllAssoc();
+
         // delete requests from both tables (webform_confirm_email_code,
         // webform_confirm_email_confirmation_emails) at once via JOIN
         db_query(
@@ -441,12 +452,29 @@ function webform_confirm_email_cron() {
           '    ON  code.nid = conf.nid ' .
           '    AND code.sid = conf.sid ' .
           '  WHERE code.nid = :nid ' .
-          '  AND   code.datetime < :oldest ' ,
+          '  AND   code.sid in (:sids) ' ,
           array(
-            ':nid'    => $nid,
-            ':oldest' => $timestamp,
+            ':nid'  => $nid,
+            ':sids' => $expired_sids,
           )
         );
+
+        $node = node_load($nid);
+        if (module_exists('rules') == TRUE) {
+          foreach ($expired_sids as $sid) {
+            $submission = webform_get_submission($nid, $sid);
+            // call implementations of hook_confirmation_request_expired
+            module_invoke_all('confirmation_request_expired', $node, $submission);
+            // trigger a rules confirmation request expired event
+            rules_invoke_event('confirmation_request_expired', $node, $submission);
+          }
+        }
+        else {
+          foreach ($expired_sids as $sid) {
+            $submission = webform_get_submission($nid, $sid);
+            module_invoke_all('confirmation_request_expired', $node, $submission);
+          }
+        }
       }
     }
   }

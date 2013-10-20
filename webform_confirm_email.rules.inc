@@ -15,19 +15,36 @@ function webform_confirm_email_rules_event_info() {
 
   return array(
     'email_confirmed' => array(
-      'label'     => t('A webform email address was confirmed'),
+      'label'     => t('A webform email address was confirmed.'),
       'group'     => t('Webform'),
       'module'    => 'webform_confirm_email',
       'variables' => array(
         'node' => array(
           'label'       => t('Drupal node object'),
           'type'        => 'node',
-          'description' => t('Node object of the webform for which an email was confirmed'),
+          'description' => t('Node object of the webform for which an email was confirmed.'),
         ),
         'submission' => array(
           'label'       => t('Webform submission object'),
           'type'        => 'submission',
-          'description' => t('Webform submission object for which an email was confirmed'),
+          'description' => t('Webform submission object for which an email was confirmed.'),
+        )
+      ),
+    ),
+    'confirmation_request_expired' => array(
+      'label'     => t('A webform email confirmation request has expired.'),
+      'group'     => t('Webform'),
+      'module'    => 'webform_confirm_email',
+      'variables' => array(
+        'node' => array(
+          'label'       => t('Drupal node object'),
+          'type'        => 'node',
+          'description' => t('Node object of the webform for which an email confirmation request has exired.'),
+        ),
+        'submission' => array(
+          'label'       => t('Webform submission object'),
+          'type'        => 'submission',
+          'description' => t('Webform submission object for which an email confirmation request has exired.'),
         )
       ),
     ),
