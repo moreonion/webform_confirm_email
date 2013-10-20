@@ -3,3 +3,5 @@ description = Webform addon to confirm submitters' email.
 core = 7.x
 package = Webform
 project = webform_confirm_email
+
+dependencies[] = webform
