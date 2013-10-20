@@ -38,10 +38,12 @@ function hook_email_confirmed($node, $submission) {
 function hook_confirmation_request_expired($expired_submissions) {
   // delete the webform submissions where the confirmation request
   // have expired
+  module_load_include('inc', 'webform', 'includes/webform.submissions');
+
   foreach ($expired_submissions as $nid => $sids) {
-    $node = node_load($nid);
+    $node = node_load((int) $nid);
     foreach ($sids as $sid) {
-      webform_submission_delete($node, webform_get_submission($nid, $sid));
+      webform_submission_delete($node, webform_get_submission((int) $nid, (int) $sid));
     }
   }
 }

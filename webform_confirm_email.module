@@ -438,13 +438,13 @@ function webform_confirm_email_cron() {
         $expired_sids[$nid] = db_query(
           'SELECT DISTINCT sid ' .
           '  FROM {webform_confirm_email_code} ' .
-          '    WHERE code.nid = :nid ' .
-          '    AND   code.datetime < :oldest ' ,
+          '    WHERE nid = :nid ' .
+          '    AND   datetime < :oldest ' ,
           array(
             ':nid'    => $nid,
             ':oldest' => $timestamp,
           )
-        )->fetchAllAssoc();
+        )->fetchCol();
 
         if (!empty($expired_sids[$nid])) {
           // delete requests from both tables (webform_confirm_email_code,
@@ -461,7 +461,7 @@ function webform_confirm_email_cron() {
               ':nid'  => $nid,
               ':sids' => $expired_sids[$nid],
             )
-          );
+            );
         }
       }
       module_invoke_all('confirmation_request_expired', $expired_sids);
