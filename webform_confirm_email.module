@@ -124,10 +124,16 @@ function webform_confirm_email_mail_alter(&$message) {
         )
       );
 
-      if (   isset($message['params']['email']['html']) == TRUE
-        && $message['params']['email']['html'] == TRUE) {
+      if (!empty($message['params']['plaintext'])) {
+        $message['params']['plaintext'] = str_replace('%confirm_url', $confirm_url, $message['params']['plaintext']);
+      }
+      if ($message['params']['email']['html']) {
         $confirm_url = '<a href="' . $confirm_url . '">' . $confirm_url . '</a>';
       }
+      if (!empty($message['params']['message'])) {
+        $message['params']['message'] = str_replace('%confirm_url', $confirm_url, $message['params']['message']);
+      }
+
       foreach ($message['body'] as $i => $b) {
         $message['body'][$i] = str_replace('%confirm_url', $confirm_url, $b);
       }

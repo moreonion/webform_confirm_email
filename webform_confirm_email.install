@@ -116,39 +116,6 @@ function webform_confirm_email_schema() {
   return $schema;
 }
 
-/**
- * Implements hook_enable().
- */
-function webform_confirm_email_enable() {
-  if (module_exists('mimemail') == TRUE) {
-    _webform_confirm_email_set_module_weight();
-  }
-}
-
-/**
- * Implements hook_modules_enabled().
- */
-function webform_confirm_email_modules_enabled($modules) {
-  if (in_array('mimemail', $modules) == TRUE) {
-    _webform_confirm_email_set_module_weight();
-  }
-}
-
-/**
- * helper function to set the module weight of webform_confirm_email
- * to be higher than that of the mimemail module
- */
-function _webform_confirm_email_set_module_weight() {
-  db_query(<<<SQL
-    UPDATE system a
-      INNER JOIN system b
-        ON  a.name = 'webform_confirm_email'
-        AND b.name = 'mimemail'
-      SET a.weight = b.weight + 1
-SQL
-  );
-}
-
 // *****************************************
 // **************** UPDATES ****************
 // *****************************************
