@@ -5,3 +5,5 @@ package = Webform
 project = webform_confirm_email
 
 dependencies[] = webform
+
+stylesheets[all][] = webform_confirm_email.css

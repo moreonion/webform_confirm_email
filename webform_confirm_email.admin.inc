@@ -584,29 +584,53 @@ function webform_confirm_email_settings($form, &$form_state, $node) {
     '#weight'      => 0,
   );
 
-  $form['request_lifetime']['days'] = array(
+   $form['request_lifetime']['lifetime-container'] = array(
+    '#type'      => 'container',
+    '#attributes' => array(
+      'class' => array(
+        'clearfix',
+      ),
+    ),
+   );
+
+  $form['request_lifetime']['lifetime-container']['days'] = array(
     '#type'          => 'textfield',
     '#title'         => t('Days'),
     //'#description' => t('Confirmation request life time in days'),
     '#maxlength'     => 3,
     '#size'          => 3,
     '#default_value' => $lifetime['days'],
+    '#attributes'     => array(
+      'class' => array(
+        'webform-confirm-email-request-lifetime-days',
+      ),
+    ),
   );
-  $form['request_lifetime']['hours'] = array(
+  $form['request_lifetime']['lifetime-container']['hours'] = array(
     '#type'          => 'textfield',
     '#title'         => t('Hours'),
     //'#description' => t('Confirmation request life time in hours'),
     '#maxlength'     => 2,
     '#size'          => 2,
     '#default_value' => $lifetime['hours'],
+    '#attributes'     => array(
+      'class' => array(
+        'webform-confirm-email-request-lifetime-hours',
+      ),
+    ),
   );
-  $form['request_lifetime']['minutes'] = array(
+  $form['request_lifetime']['lifetime-container']['minutes'] = array(
     '#type'          => 'textfield',
     '#title'         => t('Minutes'),
     //'#description' => t('Confirmation request life time in minutes'),
     '#maxlength'     => 2,
     '#size'          => 2,
     '#default_value' => $lifetime['minutes'],
+    '#attributes'     => array(
+      'class' => array(
+        'webform-confirm-email-request-lifetime-minutes',
+      ),
+    ),
   );
 
   $form['actions'] = array(
