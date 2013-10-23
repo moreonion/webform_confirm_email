@@ -268,10 +268,10 @@ function webform_confirm_email_confirmation($node,
       );
     }
     // call implementations of hook_email_confirmed
-    module_invoke_all('email_confirmed', $node, $submission);
+    module_invoke_all('webform_confirm_email_email_confirmed', $node, $submission);
     // trigger a rules email confirmed event
     if (module_exists('rules') == TRUE) {
-      rules_invoke_event('email_confirmed', $node, $submission);
+      rules_invoke_event('webform_confirm_email_email_confirmed', $node, $submission);
     }
   }
   $redirect_url = db_query(
@@ -470,7 +470,7 @@ function webform_confirm_email_cron() {
             );
         }
       }
-      module_invoke_all('confirmation_request_expired', $expired_sids);
+      module_invoke_all('webform_confirm_email_request_expired', $expired_sids);
     }
   }
 }

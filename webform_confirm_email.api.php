@@ -18,7 +18,7 @@
  *   The submission object of the webform submission where the user
  *   just confirmed his/her email address
  */
-function hook_email_confirmed($node, $submission) {
+function hook_webform_confirm_email_email_confirmed($node, $submission) {
   db_query(
     'INSERT INTO {my_confirmed_submission_list} ' .
     '  VALUES (:nid, :sid) ',
@@ -35,7 +35,7 @@ function hook_email_confirmed($node, $submission) {
  *   by nid's (node ID's), it's values are subarrays containing the sid's
  *   (webform submission ID's) that have expired for this nid
  */
-function hook_confirmation_request_expired($expired_submissions) {
+function hook_webform_confirm_email_request_expired($expired_submissions) {
   // delete the webform submissions where the confirmation request
   // have expired
   module_load_include('inc', 'webform', 'includes/webform.submissions');

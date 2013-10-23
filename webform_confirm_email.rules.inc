@@ -14,7 +14,7 @@
 function webform_confirm_email_rules_event_info() {
 
   return array(
-    'email_confirmed' => array(
+    'webform_confirm_email_email_confirmed' => array(
       'label'     => t('A webform email address was confirmed.'),
       'group'     => t('Webform'),
       'module'    => 'webform_confirm_email',
