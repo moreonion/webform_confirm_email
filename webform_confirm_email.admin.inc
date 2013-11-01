@@ -6,7 +6,6 @@
  * @copyright Copyright (c) 2013 copyright
  */
 
-define("WEBFORM_CONFIRM_EMAIL_STANDARD"            , 0);
 define("WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST", 1);
 define("WEBFORM_CONFIRM_EMAIL_CONFIRMATION"        , 2);
 
@@ -148,7 +147,7 @@ function webform_confirm_email_confirmation_request_email_edit($node, $email = a
 
   $form['template']['tokens']['#markup'] = str_replace($search, $replace, $instructions);
 
-  return drupal_render($form);
+  return $form;
 }
 
 /**
@@ -181,9 +180,32 @@ function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$
 }
 
 /**
+ * Submit callback for the delete button from the main emails form.
+ * We use this callback to validate whether a confirmation request
+ * email can be deleted or not.
+ */
+function webform_confirm_email_email_delete($form, &$form_state) {
+
+  $eid = $form_state['triggering_element']['#eid'];
+
+  if ($form_state['triggering_element']['#email_type_form'] == 'confirmation_request') {
+    if (_webform_confirm_email_verify_email_setup( $form['#node']->nid, 'delete_confirmation_request_email', $eid) == FALSE) {
+      drupal_set_message(t('Deleting the only confirmation request email but still having some confirmation email(s) leads to unwanted behavior. Please delete all confirmation email(s) first.'), 'error');
+      form_error($form['confirmation_request'][$eid]);
+
+      return FALSE;
+    }
+  }
+
+  $form_state['redirect'] = array(
+    'node/' . $form['#node']->nid . '/webform/' . $form_state['triggering_element']['#email_type_form'] . '/' . $eid . '/delete',
+  );
+}
+
+/**
  * callback function set in hook_menu().
  *
- * It creates the delete email form for confirmation request emails
+ * It creates the delete email form
  */
 function webform_confirm_email_delete($node, $email = array()) {
 
@@ -204,7 +226,7 @@ function webform_confirm_email_delete($node, $email = array()) {
     $form_state
   );
 
-  return drupal_render($form);
+  return $form;
 }
 
 /**
@@ -254,7 +276,7 @@ function webform_confirm_email_confirmation_email_edit($node, $email = array()) 
 
   $form['#theme'] = array('webform_email_edit_form');
 
-  return drupal_render($form);
+  return $form;
 }
 
 /**
@@ -312,6 +334,29 @@ function webform_confirm_email_webform_emails_form_validate(&$form, &$form_state
  */
 function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_state) {
   // ******** standard emails ********
+  $eids = db_query(
+    'SELECT we.eid '.
+    '  FROM {webform_emails} we ' .
+    '  LEFT JOIN {webform_confirm_email} wce ' .
+    '      ON  we.nid = wce.nid ' .
+    '      AND we.eid = wce.eid ' .
+    '    WHERE we.nid  = :nid ' .
+    '    AND   wce.eid IS NULL ' ,
+    array(
+      ':nid'  => (int) $form['#node']->nid,
+    )
+  )->fetchCol();
+
+  foreach($eids as $eid) {
+    $form['emails'][$eid]['delete_button'] = array(
+      '#type'            => 'submit',
+      '#name'            => 'delete_emails_' . $eid,
+      '#value'           => t('Delete'),
+      '#email_type_form' => 'emails',
+      '#eid'             => $eid,
+      '#submit'          => array('webform_confirm_email_email_delete'),
+    );
+  }
   unset($form['add']);
 
   $form['emails']['add_button'] = $form['add_button'];
@@ -338,6 +383,16 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
     $form['confirmation_request'][$eid]['subject']      = $form['emails'][$eid]['subject'];
     $form['confirmation_request'][$eid]['from']         = $form['emails'][$eid]['from'];
     $form['confirmation_request'][$eid]['redirect_url'] = array('#markup' => ($redirect_url == NULL) ? 'default' : $redirect_url);
+
+    $form['confirmation_request'][$eid]['delete_button'] = array(
+      '#type'            => 'submit',
+      '#name'            => 'delete_confirmation_request_' . $eid,
+      '#value'           => t('Delete'),
+      '#email_type_form' => 'confirmation_request',
+      '#eid'             => $eid,
+      '#submit'          => array('webform_confirm_email_email_delete'),
+    );
+
     unset($form['emails'][$eid]);
   }
 
@@ -367,6 +422,15 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
     $form['confirmation'][$eid]['subject'] = $form['emails'][$eid]['subject'];
     $form['confirmation'][$eid]['from']    = $form['emails'][$eid]['from'];
 
+    $form['confirmation'][$eid]['delete_button'] = array(
+      '#type'            => 'submit',
+      '#name'            => 'delete_confirmation_' . $eid,
+      '#value'           => t('Delete'),
+      '#email_type_form' => 'confirmation',
+      '#eid'             => $eid,
+      '#submit'          => array('webform_confirm_email_email_delete'),
+    );
+
     unset($form['emails'][$eid]);
   }
 
@@ -391,12 +455,64 @@ function webform_confirm_email_confirmation_request_email_add($form, &$form_stat
 }
 
 /**
+ * Helper funciton to ensure that confirmation emails can only be added
+ * when there is already a confirmation request email defined;
+ * In the same sense, the last confirmation request email can only be
+ * deleted when there is no confirmation email defined;
+ */
+function _webform_confirm_email_verify_email_setup($nid, $operation = 'add_confirmation_email', $eid = NULL) {
+   $confirmation_request_emails = db_query(
+     'SELECT eid ' .
+     '  FROM {webform_confirm_email} ' .
+     '    WHERE nid        = :nid ' .
+     '    AND   email_type = :type ' ,
+     array(
+       ':nid'  => (int) $nid,
+       ':type' => WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST,
+     )
+   )->fetchCol();
+
+  switch ($operation) {
+    case 'add_confirmation_email':
+      return ($confirmation_request_emails == FALSE) ? FALSE : TRUE;
+      break;
+    case 'delete_confirmation_request_email':
+      if (count($confirmation_request_emails) == 1) {
+        // we're deleting the last confirmation request email for this nid;
+        // if there are no confirmation emails, than that's OK
+        $confirmation_emails_exist = db_query(
+          'SELECT eid ' .
+          '  FROM {webform_confirm_email} ' .
+          '    WHERE nid        = :nid ' .
+          '    AND   email_type = :type ' ,
+          array(
+            ':nid'  => (int) $nid,
+            ':type' => WEBFORM_CONFIRM_EMAIL_CONFIRMATION,
+          )
+        )->fetchCol();
+        return $confirmation_emails_exist ? FALSE : TRUE;
+      }
+      break;
+  }
+
+  return TRUE;
+}
+
+
+/**
  * submit handler callback from the confirmation email add button
  *
  * set a redirect to the path node/xx/webform/confirmation/new where
  * in hook_menu a page callback is defined: webform_confirm_email_confirmation_edit
  */
 function webform_confirm_email_confirmation_email_add($form, &$form_state) {
+
+  if (_webform_confirm_email_verify_email_setup($form['#node']->nid) == FALSE) {
+    drupal_set_message(t('Adding a confirmation email without having at least one confirmation request email leads to unwanted behavior. Please create a confirmation request email first.'), 'error');
+
+    return FALSE;
+  }
+
   $form_state['redirect'] = array(
     'node/' . $form['#node']->nid . '/webform/confirmation/new',
   );
@@ -469,7 +585,7 @@ function theme_webform_confirm_email_emails_form($variables) {
           $new_row[] = drupal_render($form[$email_type][$eid]['redirect_url']);
         }
         $new_row[] = l(t('Edit'),   'node/' . $node->nid . '/webform/' . $email_type . '/' . $eid);
-        $new_row[] = l(t('Delete'), 'node/' . $node->nid . '/webform/' . $email_type . '/' . $eid . '/delete');
+        $new_row[] = drupal_render($form[$email_type][$eid]['delete_button']);
 
         $rows[] = $new_row;
       }
@@ -542,7 +658,7 @@ function theme_webform_confirm_email_email_add_form($form) {
     $form[$email_type . '_option'][$option]['#suffix'] = '</div>';
   }
 
-  return drupal_render($form);
+  return $form;
 }
 
 function webform_confirm_email_settings($form, &$form_state, $node) {
