@@ -194,6 +194,13 @@ function webform_confirm_email_confirmation($node,
       ->condition('sid', $submission->sid)
       ->condition('eid', $eid)
       ->execute();
+    db_query(
+      'UPDATE {webform_submissions} ' .
+      '  SET confirmed = 1 ' .
+      '  WHERE nid = :nid ' .
+      '  AND   sid = :sid ',
+      array(':nid' => $node->nid, ':sid' => $submission->sid)
+    );
     $email_messages = db_query(
       'SELECT email_message ' .
       '  FROM {webform_confirm_email_confirmation_emails} ' .
@@ -370,6 +377,35 @@ function webform_confirm_email_menu() {
 }
 
 /**
+ * Implements hook_menu_alter().
+ */
+function webform_confirm_email_menu_alter(&$items) {
+  if (isset($items['node/%webform_menu/webform-results']) == TRUE) {
+    $items['node/%webform_menu/webform-results'] = array(
+      'title'            => 'Results',
+      'page callback'    => 'webform_confirm_email_results_submissions',
+      'page arguments'   => array(1, FALSE, '50'),
+      'access callback'  => 'webform_results_access',
+      'access arguments' => array(1),
+      'file'             => drupal_get_path('module', 'webform_confirm_email') . '/webform_confirm_email.report.inc',
+      'weight'           => 2,
+      'type'             => MENU_LOCAL_TASK,
+      'context'          => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+    );
+    $items['node/%webform_menu/webform-results/submissions'] = array(
+      'title'            => 'Submissions',
+      'page callback'    => 'webform_confirm_email_results_submissions',
+      'page arguments'   => array(1, FALSE, '50'),
+      'access callback'  => 'webform_results_access',
+      'access arguments' => array(1),
+      'file'             => drupal_get_path('module', 'webform_confirm_email') . '/webform_confirm_email.report.inc',
+      'weight'           => 4,
+      'type'             => MENU_DEFAULT_LOCAL_TASK,
+    );
+  }
+}
+
+/**
  * Implements hook_help().
  */
 function webform_confirm_email_help($path, $arg) {
@@ -473,4 +509,17 @@ function webform_confirm_email_cron() {
       module_invoke_all('webform_confirm_email_request_expired', $expired_sids);
     }
   }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function webform_confirm_email_theme() {
+  return array(
+    'webform_confirm_email_results_submissions' => array(
+      'render element' => 'element',
+      'template'       => 'templates/webform-confirm-email-results-submissions',
+      'file'           => 'webform_confirm_email.report.inc',
+    ),
+  );
 }
