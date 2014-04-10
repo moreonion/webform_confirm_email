@@ -358,11 +358,13 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
     );
   }
   unset($form['add']);
+  $form['emails']['add_button'] = array(
+    '#type'   => 'submit',
+    '#value'  => t('Add standard email'),
+    '#submit' => array('webform_emails_form_submit'),
+    '#weight' => 45,
+  );
 
-  $form['emails']['add_button'] = $form['add_button'];
-  unset($form['add_button']);
-  $form['emails']['add_button']['#value']  = t('Add standard email');
-  $form['emails']['add_button']['#submit'] = array('webform_emails_form_submit');
   array_unshift($form['#validate'], 'webform_confirm_email_webform_emails_form_validate');
 
   // ******** confirmation request emails ********
