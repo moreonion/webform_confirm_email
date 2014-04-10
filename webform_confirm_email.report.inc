@@ -7,10 +7,10 @@ define("WEBFORM_CONFIRM_EMAIL_FILTER_NONE",        0);
 define("WEBFORM_CONFIRM_EMAIL_FILTER_CONFIRMED",   1);
 define("WEBFORM_CONFIRM_EMAIL_FILTER_UNCONFIRMED", 2);
 
-function webform_confirm_email_results_confirmed_filter($form, &$form_state) {
+function webform_confirm_email_confirmed_filter_form($form, &$form_state) {
   $options = array(
-    WEBFORM_CONFIRM_EMAIL_FILTER_NONE => t('All submissions'),
-    WEBFORM_CONFIRM_EMAIL_FILTER_CONFIRMED => t('Only confirmed submissions'),
+    WEBFORM_CONFIRM_EMAIL_FILTER_NONE        => t('All submissions'),
+    WEBFORM_CONFIRM_EMAIL_FILTER_CONFIRMED   => t('Only confirmed submissions'),
     WEBFORM_CONFIRM_EMAIL_FILTER_UNCONFIRMED => t('Only unconfirmed submissions'),
   );
   $query_parameters = drupal_get_query_parameters();
@@ -27,12 +27,12 @@ function webform_confirm_email_results_confirmed_filter($form, &$form_state) {
     '#value' => t('Filter submissions'),
   );
 
-  $form['#submit'] = array('webform_confirm_email_results_confirmed_filter_submit');
+  $form['#submit'] = array('webform_confirm_email_confirmed_filter_form_submit');
 
   return $form;
 }
 
-function webform_confirm_email_results_confirmed_filter_submit($form, &$form_state) {
+function webform_confirm_email_confirmed_filter_form_submit($form, &$form_state) {
   $path = current_path();
   $query_parameters = drupal_get_query_parameters();
   if (   isset($form_state['values']['confirmed']) == TRUE
@@ -46,16 +46,9 @@ function webform_confirm_email_results_confirmed_filter_submit($form, &$form_sta
   drupal_goto($path, array('absolute' => TRUE, 'query' => $query_parameters));
 }
 
-function webform_confirm_email_results_submissions($node, $user_filter, $pager_count) {
-  global $user;
-
-  module_load_include('inc', 'webform', 'includes/webform.submissions');
-
-  if (isset($_GET['results']) && is_numeric($_GET['results'])) {
-    $pager_count = $_GET['results'];
-  }
-
+function _webform_confirm_email_get_submission_filters($node) {
   $filters = array('nid' => $node->nid);
+
   if (   isset($_GET['confirmed']) == TRUE
       && is_numeric($_GET['confirmed']) == TRUE) {
     switch ($_GET['confirmed']) {
@@ -67,6 +60,19 @@ function webform_confirm_email_results_submissions($node, $user_filter, $pager_c
          break;
     }
   }
+  return $filters;
+}
+
+function webform_confirm_email_results_submissions($node, $user_filter, $pager_count) {
+  global $user;
+
+  module_load_include('inc', 'webform', 'includes/webform.submissions');
+
+  if (isset($_GET['results']) && is_numeric($_GET['results'])) {
+    $pager_count = $_GET['results'];
+  }
+
+  $filters = _webform_confirm_email_get_submission_filters($node);
 
   $header = theme('webform_results_submissions_header', array('node' => $node));
   $query = db_select('webform_submissions', 'ws')
@@ -85,7 +91,6 @@ function webform_confirm_email_results_submissions($node, $user_filter, $pager_c
     }
     webform_set_breadcrumb($node);
     $filters['uid'] = $user->uid;
-    $count = webform_get_submission_count($node->nid, $user->uid);
     $query->condition('ws.uid', $user->uid);
   }
   $submissions = isset($_SESSION['webform_submission']) ? $_SESSION['webform_submission'] : NULL;
@@ -137,7 +142,7 @@ function webform_confirm_email_results_submissions($node, $user_filter, $pager_c
   $element['#pager_count'] = $pager_count;
   $element['#attached']['library'][] = array('webform', 'admin');
 
-  $element['confirmed_form'] = drupal_get_form('webform_confirm_email_results_confirmed_filter');
+  $element['confirmed_form'] = drupal_get_form('webform_confirm_email_confirmed_filter_form');
 
   $element['table']['#theme'] = 'table';
   $element['table']['#header'] = $header;
@@ -160,4 +165,42 @@ function template_preprocess_webform_confirm_email_results_submissions(&$vars) {
   $vars['is_submissions'] = (arg(2) == 'submissions')? 1 : 0;
 
   unset($vars['element']);
+}
+
+/**
+ * Create a table containing all submitted values for a webform node.
+ */
+function webform_confirm_email_results_table($node, $pager_count = 0) {
+  if (isset($_GET['results']) && is_numeric($_GET['results'])) {
+    $pager_count = $_GET['results'];
+  }
+  $filters = _webform_confirm_email_get_submission_filters($node);
+  // Get all the submissions for the node.
+  $header = theme('webform_results_table_header', array('node' => $node));
+  $submissions = webform_get_submissions($filters, $header, $pager_count);
+  $total_count = webform_get_submission_count($node->nid);
+  $confirmed_form = drupal_get_form('webform_confirm_email_confirmed_filter_form');
+
+  $output = theme(
+    'webform_confirm_email_results_table',
+    array(
+      'confirmed_form' => $confirmed_form,
+      'node'           => $node,
+      'components'     => $node->webform['components'],
+      'submissions'    => $submissions,
+      'total_count'    => $total_count,
+      'pager_count'    => $pager_count
+    )
+  );
+  if ($pager_count) {
+    $output .= theme('pager');
+  }
+  return $output;
+}
+
+function theme_webform_confirm_email_results_table($variables) {
+  $output = drupal_render($variables['confirmed_form']);
+  $output .= theme_webform_results_table($variables);
+
+  return $output;
 }

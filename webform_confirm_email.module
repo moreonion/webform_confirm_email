@@ -402,6 +402,16 @@ function webform_confirm_email_menu_alter(&$items) {
       'weight'           => 4,
       'type'             => MENU_DEFAULT_LOCAL_TASK,
     );
+    $items['node/%webform_menu/webform-results/table'] = array(
+      'title'            => 'Table',
+      'page callback'    => 'webform_confirm_email_results_table',
+      'page arguments'   => array(1, '50'),
+      'access callback'  => 'webform_results_access',
+      'access arguments' => array(1),
+      'file'             => drupal_get_path('module', 'webform_confirm_email') . '/webform_confirm_email.report.inc',
+      'weight'           => 6,
+      'type'             => MENU_LOCAL_TASK,
+    );
   }
 }
 
@@ -520,6 +530,17 @@ function webform_confirm_email_theme() {
       'render element' => 'element',
       'template'       => 'templates/webform-confirm-email-results-submissions',
       'file'           => 'webform_confirm_email.report.inc',
+    ),
+    'webform_confirm_email_results_table' => array(
+      'variables' => array(
+        'confirmed_form' => NULL,
+        'node'           => NULL,
+        'components'     => NULL,
+        'submissions'    => NULL,
+        'total_count'    => NULL,
+        'pager_count'    => NULL,
+      ),
+      'file' => 'webform_confirm_email.report.inc',
     ),
   );
 }
