@@ -112,40 +112,17 @@ function webform_confirm_email_confirmation_request_email_edit($node, $email = a
   $form['redirect_url_option']['#options']['custom'] = t('Custom redirect URL');
   $form['redirect_url_custom'] = array(
     '#type'          => 'textfield',
+    '#size'          => 40,
     '#default_value' => $redirect_url ? $redirect_url : NULL,
   );
   drupal_prepare_form($form_id, $form, $form_state);
   drupal_process_form($form_id, $form, $form_state);
 
-  $form['redirect_url_custom']['#attributes']['class']      = array('webform-set-active');
+  $form['redirect_url_custom']['#attributes']['class'][] = 'webform-set-active';
+  $form['redirect_url_custom']['#theme_wrappers'] = array();
+
   $form['redirect_url_option']['custom']['#theme_wrappers'] = array('webform_inline_radio');
-  $form['redirect_url_option']['custom']['#inline_element'] = drupal_render($form['redirect_url_custom']);
-
-  $form['redirect_url_option']['default']['#theme_wrappers'] = array('webform_inline_radio');
-
-  // ********* add help text for the %confirm_url token ************
-
-  $instructions = $form['template']['tokens']['#markup'];
-  $search = '<p>' .
-    t('You may use special tokens in this field that will be replaced with dynamic values.') .
-    '</p>';
-
-  $confirmation_tokens = array(
-    t(
-      '@confirm_url - URL that is emailed to a submitee that will confirm his/her email address.',
-      array('@confirm_url' => '%confirm_url')
-    )
-  );
-
-  $replace = $search . theme(
-    'item_list',
-    array(
-      'items' => $confirmation_tokens,
-      'title' => t('Email confirmation variables')
-    )
-  );
-
-  $form['template']['tokens']['#markup'] = str_replace($search, $replace, $instructions);
+  $form['redirect_url_option']['custom']['#title'] = t('!title: !field', array('!title' => $form['redirect_url_option']['custom']['#title'], '!field' => drupal_render($form['redirect_url_custom'])));
 
   return $form;
 }
@@ -155,8 +132,8 @@ function webform_confirm_email_confirmation_request_email_edit($node, $email = a
  */
 function _webform_confirm_email_edit_confirmation_request_email_submit($form, &$form_state) {
   if (   isset($form_state['values']['eid']) == TRUE
-      && isset($form['node']['#value']->nid) == TRUE) {
-    $obj['nid']          = $form['node']['#value']->nid;
+      && isset($form['#node']->nid) == TRUE) {
+    $obj['nid']          = $form['#node']->nid;
     $obj['email_type']   = WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST;
     $obj['redirect_url'] = ($form_state['values']['redirect_url_option'] === 'custom') ? $form_state['values']['redirect_url_custom'] : NULL;
 
@@ -288,10 +265,10 @@ function webform_confirm_email_confirmation_email_edit($node, $email = array()) 
 function _webform_confirm_email_edit_confirmation_email_submit($form, &$form_state) {
 
   if (   isset($form_state['values']['eid']) == TRUE
-      && isset($form['node']['#value']->nid) == TRUE) {
+      && isset($form['#node']->nid) == TRUE) {
 
     $obj['eid']        = $form_state['values']['eid'];
-    $obj['nid']        = $form['node']['#value']->nid;
+    $obj['nid']        = $form['#node']->nid;
     $obj['email_type'] = WEBFORM_CONFIRM_EMAIL_CONFIRMATION;
 
     if (empty($form['eid']['#value']) == TRUE) {
