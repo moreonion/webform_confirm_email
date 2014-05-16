@@ -3,9 +3,7 @@
  * @file
  */
 
-define("WEBFORM_CONFIRM_EMAIL_FILTER_NONE",        0);
-define("WEBFORM_CONFIRM_EMAIL_FILTER_CONFIRMED",   1);
-define("WEBFORM_CONFIRM_EMAIL_FILTER_UNCONFIRMED", 2);
+include_once 'webform_confirm_email.inc';
 
 function webform_confirm_email_confirmed_filter_form($form, &$form_state) {
   $options = array(

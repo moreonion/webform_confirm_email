@@ -4,6 +4,7 @@
  */
 
 include_once 'webform_confirm_email.admin.inc';
+include_once 'webform_confirm_email.inc';
 
 /**
  * Implements hook_webform_submission_delete().
@@ -562,4 +563,110 @@ function webform_confirm_email_webform_template_insert($node, $template) {
 function webform_confirm_email_webform_template_update($node, $template) {
   db_delete('webform_confirm_email')->condition('nid', $node->nid)->execute();
   webform_confirm_email_webform_template_insert($node, $template);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function webform_confirm_email_form_webform_results_download_form_alter(&$form, &$form_state, $form_id) {
+  $options = array(
+    WEBFORM_CONFIRM_EMAIL_FILTER_NONE        => t('Download all submissions'),
+    WEBFORM_CONFIRM_EMAIL_FILTER_CONFIRMED   => t('Download only confirmed submissions'),
+    WEBFORM_CONFIRM_EMAIL_FILTER_UNCONFIRMED => t('Download only unconfirmed submissions'),
+  );
+  $form['range']['confirmed']= array(
+    '#type'          => 'radios',
+    '#title'         => t('You can restrict the download to include only (un)confirmed submissions'),
+    '#default_value' => WEBFORM_CONFIRM_EMAIL_FILTER_NONE,
+    '#options'       => $options,
+    '#access'        => TRUE,
+  );
+
+  $form['#submit'] = array('webform_confirm_email_results_download_form_submit');
+
+  return $form;
+}
+
+function webform_confirm_email_results_download_form_submit(&$form, &$form_state) {
+  $options = array(
+    'delimiter'     => $form_state['values']['delimiter'],
+    'components'    => array_keys(array_filter($form_state['values']['components'])),
+    'select_keys'   => $form_state['values']['select_keys'],
+    'select_format' => $form_state['values']['select_format'],
+    'range_type'    => $form_state['values']['range']['range_type'],
+    'download'      => $form_state['values']['download'],
+  );
+
+  $filters = array();
+  switch ($form_state['values']['range']['confirmed']) {
+    case WEBFORM_CONFIRM_EMAIL_FILTER_CONFIRMED:
+      $filters['confirmed'] = 1;
+      break;
+    case  WEBFORM_CONFIRM_EMAIL_FILTER_UNCONFIRMED:
+      $filters['confirmed'] = 0;
+      break;
+  }
+
+  $options['sids'] = webform_confirm_email_download_sids($form_state['values']['node']->nid, $form_state['values']['range'], NULL, $filters);
+
+  $export_info = webform_results_export($form_state['values']['node'], $form_state['values']['format'], $options);
+
+  // If webform result file should be downloaded, send the file to the browser,
+  // otherwise save information about the created file in $form_state.
+  if ($options['download']) {
+    webform_results_download($form_state['values']['node'], $export_info);
+  }
+  else {
+    $form_state['export_info'] = $export_info;
+  }
+}
+
+function webform_confirm_email_download_sids($nid, $range_options, $uid = NULL, $filters = NULL) {
+  $query = db_select('webform_submissions', 'ws')
+    ->fields('ws', array('sid'))
+    ->condition('nid', $nid);
+
+  if (isset($filters) == TRUE) {
+    foreach($filters as $column => $value) {
+      $query->condition($column, $value);
+    }
+  }
+
+  switch ($range_options['range_type']) {
+    case 'all':
+      // All Submissions.
+      $query->orderBy('sid', 'ASC');
+      break;
+    case 'new':
+      // All Since Last Download.
+      $download_info = webform_download_last_download_info($nid, $uid);
+      $last_sid = $download_info ? $download_info['sid'] : 0;
+      $query
+        ->condition('sid', $last_sid, '>')
+        ->orderBy('sid', 'ASC');
+      break;
+    case 'latest':
+      // Last x Submissions.
+      $query
+        ->orderBy('sid', 'DESC')
+        ->range(0, $range_options['latest']);
+      break;
+    case 'range':
+      // Submissions Start-End.
+      $query->condition('sid', $range_options['start'], '>=');
+      if ($range_options['end']){
+        $query->condition('sid', $range_options['end'], '<=');
+      }
+      $query->orderBy('sid', 'ASC');
+      break;
+  }
+
+  $sids = $query->execute()->fetchCol();
+
+  // The last x submissions option has SIDs that are in reverse order.
+  if ($range_options['range_type'] == 'latest') {
+    $sids = array_reverse($sids);
+  }
+
+  return $sids;
 }

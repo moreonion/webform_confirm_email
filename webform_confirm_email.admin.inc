@@ -3,8 +3,7 @@
  * @file
  */
 
-define("WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST", 1);
-define("WEBFORM_CONFIRM_EMAIL_CONFIRMATION"        , 2);
+require_once 'webform_confirm_email.inc';
 
 /**
  * Implements hook_webform_component_delete().
