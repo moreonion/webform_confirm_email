@@ -1,9 +1,6 @@
 <?php
 /**
  * @file
- *
- * @author    Matthias Weiss <matthias@more-onion.com>
- * @copyright Copyright (c) 2013 copyright
  */
 
 include_once 'webform_confirm_email.admin.inc';
