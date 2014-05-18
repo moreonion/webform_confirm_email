@@ -97,7 +97,6 @@ releases that change the database structure.
 
 Todo/Plans
 ==========
-* add cron option to delete also expired submissions
 * reduce code duplication when providing confirmation filters in the webform submission result table: provide patch to webform 
 * provide better confirmation request email body template
 * drupal 8 support
