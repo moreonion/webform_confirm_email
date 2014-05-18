@@ -658,27 +658,28 @@ function theme_webform_confirm_email_email_add_form($form) {
 }
 
 function webform_confirm_email_settings($form, &$form_state, $node) {
-
   $lifetime = array(
     'days'    => NULL,
     'hours'   => NULL,
     'minutes' => NULL,
   );
+  $delete_submissions = FALSE;
   if (!empty($node)) {
     $form['#node'] = $node;
 
-    $request_lifetime = (int) db_query(
-      'SELECT request_lifetime ' .
+    $result = db_query(
+      'SELECT request_lifetime, delete_submissions ' .
       '  FROM {webform_confirm_email} ' .
       '    WHERE nid = :nid ' .
       '  LIMIT 1 ' ,
       array(':nid' => $node->nid)
-    )->fetchField();
-
-    if ($request_lifetime) {
-      $lifetime['days']    = (int) ($request_lifetime / 86400);
-      $lifetime['hours']   = (int)(($request_lifetime % 86400) / 3600);
-      $lifetime['minutes'] = (int)(($request_lifetime % 86400) % 3600) / 60;
+    )->fetchAll();
+    $result = array_shift($result);
+    if ($result->request_lifetime) {
+      $delete_submissions  = $result->delete_submissions;
+      $lifetime['days']    = (int) ($result->request_lifetime / 86400);
+      $lifetime['hours']   = (int)(($result->request_lifetime % 86400) / 3600);
+      $lifetime['minutes'] = (int)(($result->request_lifetime % 86400) % 3600) / 60;
       foreach (array('days', 'hours', 'minutes') as $key) {
         if ($lifetime[$key] == 0) {
           $lifetime[$key] = NULL;
@@ -687,28 +688,27 @@ function webform_confirm_email_settings($form, &$form_state, $node) {
     }
   }
 
-   $form['request_lifetime'] = array(
+  $form['request_lifetime'] = array(
     '#type'        => 'fieldset',
     '#title'       => t('Confirmation Request Lifetime'),
-    '#description' => t('Specify the lifetime of confirmation request before they get deleted automatically. To not delete any requests leave fields blank.'),
+    '#description' => t('Specify the lifetime of confirmation requests before they get deleted automatically. That means, webform_confirm_email deletes it\'s internal data about the expired confirmation requests. To not delete any requests leave fields blank.'),
     '#collapsible' => TRUE,
     '#collapsed'   => FALSE,
     '#weight'      => 0,
   );
 
-   $form['request_lifetime']['lifetime-container'] = array(
+  $form['request_lifetime']['lifetime-container'] = array(
     '#type'      => 'container',
     '#attributes' => array(
       'class' => array(
         'clearfix',
       ),
     ),
-   );
+  );
 
   $form['request_lifetime']['lifetime-container']['days'] = array(
     '#type'          => 'textfield',
     '#title'         => t('Days'),
-    //'#description' => t('Confirmation request life time in days'),
     '#maxlength'     => 3,
     '#size'          => 3,
     '#default_value' => $lifetime['days'],
@@ -721,7 +721,6 @@ function webform_confirm_email_settings($form, &$form_state, $node) {
   $form['request_lifetime']['lifetime-container']['hours'] = array(
     '#type'          => 'textfield',
     '#title'         => t('Hours'),
-    //'#description' => t('Confirmation request life time in hours'),
     '#maxlength'     => 2,
     '#size'          => 2,
     '#default_value' => $lifetime['hours'],
@@ -734,7 +733,6 @@ function webform_confirm_email_settings($form, &$form_state, $node) {
   $form['request_lifetime']['lifetime-container']['minutes'] = array(
     '#type'          => 'textfield',
     '#title'         => t('Minutes'),
-    //'#description' => t('Confirmation request life time in minutes'),
     '#maxlength'     => 2,
     '#size'          => 2,
     '#default_value' => $lifetime['minutes'],
@@ -743,6 +741,12 @@ function webform_confirm_email_settings($form, &$form_state, $node) {
         'webform-confirm-email-request-lifetime-minutes',
       ),
     ),
+  );
+  $form['request_lifetime']['lifetime-container']['delete_submissions'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Delete submissions'),
+    '#description'   => t('If checked then not only webform_confirm_email\'s internal data but also the submissions themselfs will be deleted. If unchecked, only webform_confirm_email\'s internal data will be deleted.'),
+    '#default_value' => $delete_submissions,
   );
 
   $form['actions'] = array(
@@ -791,11 +795,13 @@ function webform_confirm_email_settings_submit($form, &$form_state) {
 
     db_query(
       'UPDATE {webform_confirm_email} ' .
-      '  SET request_lifetime = :lifetime ' .
+      '  SET request_lifetime   = :lifetime , ' .
+      '      delete_submissions = :delete_submissions ' .
       '  WHERE nid = :nid ' ,
       array(
-        ':lifetime' => $lifetime,
-        ':nid'      => $form['#node']->nid,
+        ':lifetime'           => $lifetime,
+        ':nid'                => $form['#node']->nid,
+        ':delete_submissions' => $form_state['values']['delete_submissions'],
       )
     );
 
