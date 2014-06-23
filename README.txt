@@ -102,7 +102,7 @@ Todo/Plans
   expired/deleted confirmation requests
 * change webform submission result table to filter for confirmed/not confirmed
   submissions * add hook for "submission has been confirmed" events
+* add drupal core tokens instead of the custom %confirm_url token
 * provide better confirmation request email body template
-* webform 4 support
 * drupal 8 support
 
