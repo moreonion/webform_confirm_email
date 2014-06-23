@@ -5,6 +5,9 @@
 
 include_once 'webform_confirm_email.inc';
 
+/**
+ * Helper function to propvide a form for filtering for (un)confirmed submissions
+ */
 function webform_confirm_email_confirmed_filter_form($form, &$form_state) {
   $options = array(
     WEBFORM_CONFIRM_EMAIL_FILTER_NONE        => t('All submissions'),
@@ -30,6 +33,9 @@ function webform_confirm_email_confirmed_filter_form($form, &$form_state) {
   return $form;
 }
 
+/**
+ * Submit handler for filter form for filtering for (un)confirmed submissions
+ */
 function webform_confirm_email_confirmed_filter_form_submit($form, &$form_state) {
   $path = current_path();
   $query_parameters = drupal_get_query_parameters();
@@ -44,6 +50,9 @@ function webform_confirm_email_confirmed_filter_form_submit($form, &$form_state)
   drupal_goto($path, array('absolute' => TRUE, 'query' => $query_parameters));
 }
 
+/**
+ * Helper function to determine if a "confirmed submissions" filter is set
+ */
 function _webform_confirm_email_get_submission_filters($node) {
   $filters = array('nid' => $node->nid);
 
