@@ -183,9 +183,15 @@ function webform_confirm_email_results_table($node, $pager_count = 0) {
   }
   $filters = _webform_confirm_email_get_submission_filters($node);
   // Get all the submissions for the node.
-  $header = theme('webform_results_table_header', array('node' => $node));
+  $options['type'] = 'results';
+  require_once drupal_get_path('module', 'webform') . '/includes/webform.report.inc';
+  $header = webform_results_download_submission_information($node, $options);
+  require_once drupal_get_path('module', 'webform') . '/includes/webform.submissions.inc';
   $submissions = webform_get_submissions($filters, $header, $pager_count);
   $total_count = webform_get_submission_count($node->nid);
+  foreach ($submissions as $sid => &$submission) {
+    $extra_data[$sid] = module_invoke_all('webform_results_download_submission_information_data', $submission, $options, 0, $total_count);
+  }
   $confirmed_form = drupal_get_form('webform_confirm_email_confirmed_filter_form');
 
   $output = theme(
@@ -196,7 +202,9 @@ function webform_confirm_email_results_table($node, $pager_count = 0) {
       'components'     => $node->webform['components'],
       'submissions'    => $submissions,
       'total_count'    => $total_count,
-      'pager_count'    => $pager_count
+      'pager_count'    => $pager_count,
+      'header'         => $header,
+      'extra_data'     => $extra_data,
     )
   );
   if ($pager_count) {
@@ -206,6 +214,7 @@ function webform_confirm_email_results_table($node, $pager_count = 0) {
 }
 
 function theme_webform_confirm_email_results_table($variables) {
+  require_once drupal_get_path('module', 'webform') . '/includes/webform.report.inc';
   $output = drupal_render($variables['confirmed_form']);
   $output .= theme_webform_results_table($variables);
 
