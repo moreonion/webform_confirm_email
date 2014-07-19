@@ -97,12 +97,9 @@ releases that change the database structure.
 
 Todo/Plans
 ==========
-* add configurable cron support for expiring (=deleting) old confirmation
-  requests that haven't been confirmed * provide hook for the event of
-  expired/deleted confirmation requests
+* add auto delete for expired submissions
 * change webform submission result table to filter for confirmed/not confirmed
-  submissions * add hook for "submission has been confirmed" events
-* add drupal core tokens instead of the custom %confirm_url token
+  submissions
 * provide better confirmation request email body template
 * drupal 8 support
 
