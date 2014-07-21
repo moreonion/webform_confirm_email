@@ -489,3 +489,25 @@ function webform_confirm_email_cron() {
     }
   }
 }
+
+/**
+ * Implements hook_webform_template_insert().
+ */
+function webform_confirm_email_webform_template_insert($node, $template) {
+  db_query(
+    'INSERT INTO {webform_confirm_email} ' .
+    '  (nid, eid, email_type) ' .
+    '  SELECT :target_nid, eid, email_type ' .
+    '    FROM {webform_confirm_email} ' .
+    '      WHERE nid=:template_nid ' ,
+    array(':target_nid' => $node->nid, ':template_nid' => $template->nid)
+  );
+}
+
+/**
+ * Implements hook_webform_template_update().
+ */
+function webform_confirm_email_webform_template_update($node, $template) {
+  db_delete('webform_confirm_email')->condition('nid', $node->nid)->execute();
+  webform_confirm_email_webform_template_insert($node, $template);
+}
