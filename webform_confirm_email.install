@@ -141,6 +141,13 @@ function webform_confirm_email_schema_alter(&$schema) {
  * Implements hook_install().
  */
 function webform_confirm_email_install() {
+  _webform_confirm_email_add_column_to_webform_submissions();
+}
+
+/**
+ * helper function to add column to webform_submissions table
+ */
+function _webform_confirm_email_add_column_to_webform_submissions() {
   if (db_table_exists('webform_submissions') == TRUE) {
     db_add_field(
       'webform_submissions',
@@ -168,6 +175,14 @@ function webform_confirm_email_uninstall() {
 // *****************************************
 // **************** UPDATES ****************
 // *****************************************
+
+/**
+ * Add database field confirmed to webform_submissions table.
+ */
+function webform_confirm_email_update_7103() {
+  _webform_confirm_email_add_column_to_webform_submissions();
+}
+
 
 /**
  * Add database field delete_submissions to webform_confirm_email table
