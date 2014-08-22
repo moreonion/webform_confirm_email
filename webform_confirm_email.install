@@ -128,75 +128,18 @@ function webform_confirm_email_schema() {
 /**
  * Add database field delete_submissions to webform_confirm_email table
  */
-function webform_confirm_email_update_7201() {
-  db_add_field(
-    'webform_confirm_email',
-    'delete_submissions',
-    array(
-      'type'        => 'int',
-      'size'        => 'tiny',
-      'description' => 'If set to TRUE submissions with unconfirmed confirmation requests will be deleted by chron for this webform. NULL means don\'t delete any submissions',
-      'not null'    => FALSE,
-      'default'     => 0,
-    )
-  );
-}
-
-/**
- * Add database field request_lifetime to webform_confirm_email table
- *
- * remove unused database field eid from
- * webform_confirm_email_confirmation_emails table
- */
-function webform_confirm_email_update_7001() {
-  db_add_field(
-    'webform_confirm_email',
-    'request_lifetime',
-    array(
-      'type'        => 'int',
-      'description' => 'Time in seconds after which an unconfirmed confirmation request may be deleted for this webform. NULL means don\'t delete any requests',
-      'not null'    => FALSE,
-    )
-  );
-
-  db_add_field(
-    'webform_confirm_email_code',
-    'datetime',
-    array(
-      'description' => 'Creation timestamp used for cron job cleanup of confirmation mails that exceeded their storage lifetime set by the admin',
-      'type'        => 'int',
-      'not null'    => FALSE,
-    )
-  );
-
-  db_query(
-    'UPDATE {webform_confirm_email_code} a ' .
-    '  LEFT OUTER JOIN {webform_confirm_email_confirmation_emails} b ' .
-    '    ON  a.nid = b.nid ' .
-    '    AND a.sid = b.sid ' .
-    '  SET a.datetime = b.datetime '
-  );
-
-  db_change_field(
-    'webform_confirm_email_code',
-    'datetime',
-    'datetime',
-    array(
-      'description' => 'Creation timestamp used for cron job cleanup of confirmation mails that exceeded their storage lifetime set by the admin',
-      'type'        => 'int',
-      'not null'    => TRUE,
-    )
-  );
-
-  db_drop_primary_key('webform_confirm_email_confirmation_emails');
-
-  db_drop_field('webform_confirm_email_confirmation_emails', 'eid');
-  db_drop_field('webform_confirm_email_confirmation_emails', 'datetime');
-
-  db_add_index(
-    'webform_confirm_email_confirmation_emails',
-    'webform_confirm_email_confirmation_emails_nidsid_index',
-    array('nid', 'sid')
-  );
-
+function webform_confirm_email_update_7202() {
+  if (!db_field_exists('webform_confirm_email', 'delete_submissions')) {
+    db_add_field(
+      'webform_confirm_email',
+      'delete_submissions',
+      array(
+        'type'        => 'int',
+        'size'        => 'tiny',
+        'description' => 'If set to TRUE submissions with unconfirmed confirmation requests will be deleted by chron for this webform. NULL means don\'t delete any submissions',
+        'not null'    => FALSE,
+        'default'     => 0,
+      )
+    );
+  }
 }
