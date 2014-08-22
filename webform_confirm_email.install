@@ -148,7 +148,7 @@ function webform_confirm_email_install() {
  * helper function to add column to webform_submissions table
  */
 function _webform_confirm_email_add_column_to_webform_submissions() {
-  if (db_table_exists('webform_submissions') == TRUE) {
+  if (db_table_exists('webform_submissions') && !db_field_exists('webform_submissions', 'confirmed')) {
     db_add_field(
       'webform_submissions',
       'confirmed',
@@ -167,7 +167,7 @@ function _webform_confirm_email_add_column_to_webform_submissions() {
  * Implements hook_uninstall().
  */
 function webform_confirm_email_uninstall() {
-  if (db_table_exists('webform_submissions') == TRUE) {
+  if (db_table_exists('webform_submissions') && db_field_exists('webform_submissions', 'confirmed')) {
     db_drop_field('webform_submissions', 'confirmed');
   }
 }
