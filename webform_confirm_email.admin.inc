@@ -653,9 +653,8 @@ function webform_confirm_email_settings($form, &$form_state, $node) {
       '    WHERE nid = :nid ' .
       '  LIMIT 1 ' ,
       array(':nid' => $node->nid)
-    )->fetchAll();
-    $result = array_shift($result);
-    if ($result->request_lifetime) {
+    )->fetchObject();
+    if (isset($result->request_lifetime) && isset($result->delete_submissions)) {
       $delete_submissions  = $result->delete_submissions;
       $lifetime['days']    = (int) ($result->request_lifetime / 86400);
       $lifetime['hours']   = (int)(($result->request_lifetime % 86400) / 3600);
