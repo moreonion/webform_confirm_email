@@ -97,6 +97,4 @@ releases that change the database structure.
 
 Todo/Plans
 ==========
-* change webform submission result table to filter for confirmed/not confirmed
-  submissions
 * drupal 8 support
