@@ -3,7 +3,8 @@
  * @file
  */
 
-require_once dirname(__FILE__) . '/webform_confirm_email.admin.inc';
+include_once 'webform_confirm_email.admin.inc';
+include_once 'webform_confirm_email.inc';
 
 /**
  * Implements hook_webform_submission_delete().
@@ -136,6 +137,13 @@ function webform_confirm_email_confirmation($node,
       ->condition('sid', $submission->sid)
       ->condition('eid', $eid)
       ->execute();
+    db_query(
+      'UPDATE {webform_submissions} ' .
+      '  SET confirmed = 1 ' .
+      '  WHERE nid = :nid ' .
+      '  AND   sid = :sid ',
+      array(':nid' => $node->nid, ':sid' => $submission->sid)
+    );
     $email_messages = db_query(
       'SELECT email_message ' .
       '  FROM {webform_confirm_email_confirmation_emails} ' .
@@ -314,6 +322,45 @@ function webform_confirm_email_menu() {
 }
 
 /**
+ * Implements hook_menu_alter().
+ */
+function webform_confirm_email_menu_alter(&$items) {
+  if (isset($items['node/%webform_menu/webform-results']) == TRUE) {
+    $items['node/%webform_menu/webform-results'] = array(
+      'title'            => 'Results',
+      'page callback'    => 'webform_confirm_email_results_submissions',
+      'page arguments'   => array(1, FALSE, '50'),
+      'access callback'  => 'webform_results_access',
+      'access arguments' => array(1),
+      'file'             => drupal_get_path('module', 'webform_confirm_email') . '/webform_confirm_email.report.inc',
+      'weight'           => 2,
+      'type'             => MENU_LOCAL_TASK,
+      'context'          => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+    );
+    $items['node/%webform_menu/webform-results/submissions'] = array(
+      'title'            => 'Submissions',
+      'page callback'    => 'webform_confirm_email_results_submissions',
+      'page arguments'   => array(1, FALSE, '50'),
+      'access callback'  => 'webform_results_access',
+      'access arguments' => array(1),
+      'file'             => drupal_get_path('module', 'webform_confirm_email') . '/webform_confirm_email.report.inc',
+      'weight'           => 4,
+      'type'             => MENU_DEFAULT_LOCAL_TASK,
+    );
+    $items['node/%webform_menu/webform-results/table'] = array(
+      'title'            => 'Table',
+      'page callback'    => 'webform_confirm_email_results_table',
+      'page arguments'   => array(1, '50'),
+      'access callback'  => 'webform_results_access',
+      'access arguments' => array(1),
+      'file'             => drupal_get_path('module', 'webform_confirm_email') . '/webform_confirm_email.report.inc',
+      'weight'           => 6,
+      'type'             => MENU_LOCAL_TASK,
+    );
+  }
+}
+
+/**
  * Implements hook_token_info_alter().
  */
 function webform_confirm_email_token_info_alter(&$data) {
@@ -433,63 +480,84 @@ Your petition team"';
  */
 function webform_confirm_email_cron() {
   // get all node id's that we have to check for expired requests
-  $nids = db_query(
-    'SELECT DISTINCT(nid) ' .
-    ' FROM {webform_confirm_email_code} '
-  )->fetchCol();
+  $nids_lifetime = db_query(
+    'SELECT confirm.nid, confirm.request_lifetime, confirm.delete_submissions ' .
+    '  FROM {webform_confirm_email_code} code ' .
+    '  INNER JOIN {webform_confirm_email} confirm ' .
+    '    ON code.nid = confirm.nid ' .
+    '  WHERE confirm.request_lifetime IS NOT NULL ' .
+    '  GROUP BY confirm.nid '
+    )->fetchAllAssoc('nid');
 
-  if ($nids) {
-    // get a nid -> lifetime mapping
-    $nids_lifetime = db_query(
-      'SELECT nid, request_lifetime ' .
-      '  FROM {webform_confirm_email} ' .
-      '    WHERE nid IN (:nids) ' .
-      '    AND   request_lifetime IS NOT NULL ' .
-      '  GROUP BY nid ' ,
-      array(':nids' => $nids)
-    )->fetchAllKeyed();
-
-    if (!empty($nids_lifetime)) {
+  if (!empty($nids_lifetime)) {
+    foreach ($nids_lifetime as $nid => $settings) {
       $expired_sids = array();
+      // calculate the oldets timestamp that is still not expired
+      // for this nid;
+      $timestamp = REQUEST_TIME - $settings->request_lifetime;
+      $expired_sids[$nid] = db_query(
+        'SELECT sid ' .
+        '  FROM {webform_confirm_email_code} ' .
+        '    WHERE nid = :nid ' .
+        '    AND   datetime < :oldest ' .
+        '  GROUP BY sid ' ,
+        array(
+          ':nid'    => $nid,
+          ':oldest' => $timestamp,
+        )
+      )->fetchCol();
 
-      foreach ($nids_lifetime as $nid => $lifetime) {
-
-        // calculate the oldets timestamp that is still not expired
-        // for this nid;
-        $timestamp = REQUEST_TIME - $lifetime;
-
-        $expired_sids[$nid] = db_query(
-          'SELECT DISTINCT sid ' .
-          '  FROM {webform_confirm_email_code} ' .
-          '    WHERE nid = :nid ' .
-          '    AND   datetime < :oldest ' ,
+      if (!empty($expired_sids[$nid])) {
+        // delete requests from both tables (webform_confirm_email_code,
+        // webform_confirm_email_confirmation_emails) at once via JOIN
+        db_query(
+          'DELETE code, conf ' .
+          '  FROM {webform_confirm_email_code} code ' .
+          '  LEFT JOIN {webform_confirm_email_confirmation_emails} conf' .
+          '    ON  code.nid = conf.nid ' .
+          '    AND code.sid = conf.sid ' .
+          '  WHERE code.nid = :nid ' .
+          '  AND   code.sid in (:sids) ' ,
           array(
-            ':nid'    => $nid,
-            ':oldest' => $timestamp,
+            ':nid'  => $nid,
+            ':sids' => $expired_sids[$nid],
           )
-        )->fetchCol();
-
-        if (!empty($expired_sids[$nid])) {
-          // delete requests from both tables (webform_confirm_email_code,
-          // webform_confirm_email_confirmation_emails) at once via JOIN
-          db_query(
-            'DELETE code, conf ' .
-            '  FROM {webform_confirm_email_code} code ' .
-            '  LEFT JOIN {webform_confirm_email_confirmation_emails} conf' .
-            '    ON  code.nid = conf.nid ' .
-            '    AND code.sid = conf.sid ' .
-            '  WHERE code.nid = :nid ' .
-            '  AND   code.sid in (:sids) ' ,
-            array(
-              ':nid'  => $nid,
-              ':sids' => $expired_sids[$nid],
-            )
-            );
-        }
+        );
       }
       module_invoke_all('webform_confirm_email_request_expired', $expired_sids);
+      if ($settings->delete_submissions) {
+        require_once drupal_get_path('module', 'webform') . '/includes/webform.submissions.inc';
+        $node = node_load($nid);
+        foreach ($expired_sids[$nid] as $sid) {
+          webform_submission_delete($node, webform_get_submission($nid, $sid));
+        }
+      }
     }
   }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function webform_confirm_email_theme() {
+  return array(
+    'webform_confirm_email_results_submissions' => array(
+      'render element' => 'element',
+      'template'       => 'templates/webform-confirm-email-results-submissions',
+      'file'           => 'webform_confirm_email.report.inc',
+    ),
+    'webform_confirm_email_results_table' => array(
+      'variables' => array(
+        'confirmed_form' => NULL,
+        'node'           => NULL,
+        'components'     => NULL,
+        'submissions'    => NULL,
+        'total_count'    => NULL,
+        'pager_count'    => NULL,
+      ),
+      'file' => 'webform_confirm_email.report.inc',
+    ),
+  );
 }
 
 /**
@@ -512,4 +580,174 @@ function webform_confirm_email_webform_template_insert($node, $template) {
 function webform_confirm_email_webform_template_update($node, $template) {
   db_delete('webform_confirm_email')->condition('nid', $node->nid)->execute();
   webform_confirm_email_webform_template_insert($node, $template);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function webform_confirm_email_form_webform_results_download_form_alter(&$form, &$form_state, $form_id) {
+  $options = array(
+    WEBFORM_CONFIRM_EMAIL_FILTER_NONE        => t('Download all submissions'),
+    WEBFORM_CONFIRM_EMAIL_FILTER_CONFIRMED   => t('Download only confirmed submissions'),
+    WEBFORM_CONFIRM_EMAIL_FILTER_UNCONFIRMED => t('Download only unconfirmed submissions'),
+  );
+  $form['range']['confirmed']= array(
+    '#type'          => 'radios',
+    '#title'         => t('You can restrict the download to include only (un)confirmed submissions'),
+    '#default_value' => WEBFORM_CONFIRM_EMAIL_FILTER_NONE,
+    '#options'       => $options,
+    '#access'        => TRUE,
+  );
+
+  $form['#submit'] = array('webform_confirm_email_results_download_form_submit');
+
+  return $form;
+}
+
+/**
+ * Copied and adapted from webform/includes/webform.report.inc: 
+ * function webform_results_download_form_submit
+ */
+function webform_confirm_email_results_download_form_submit(&$form, &$form_state) {
+  $node = $form_state['values']['node'];
+  $format = $form_state['values']['format'];
+
+  $options = array(
+    'delimiter' => $form_state['values']['delimiter'],
+    'components' => array_keys(array_filter($form_state['values']['components'])),
+    'header_keys' => $form_state['values']['header_keys'],
+    'select_keys' => $form_state['values']['select_keys'],
+    'select_format' => $form_state['values']['select_format'],
+    'range' => $form_state['values']['range'],
+    'download' => $form_state['values']['download'],
+  );
+
+  $filters = array();
+  switch ($form_state['values']['range']['confirmed']) {
+    case WEBFORM_CONFIRM_EMAIL_FILTER_CONFIRMED:
+      $filters['confirmed'] = 1;
+      break;
+    case  WEBFORM_CONFIRM_EMAIL_FILTER_UNCONFIRMED:
+      $filters['confirmed'] = 0;
+      break;
+  }
+  $defaults = webform_results_download_default_options($node, $format);
+  $options += $defaults;
+  $options['range'] += $defaults['range'];
+  
+  // Use a pre-built list of SIDs provided by validate handlers (if any).
+  if (isset($form_state['values']['sids'])) {
+    $options['sids'] = $form_state['values']['sids'];
+  } 
+  // Retrieve the list of required SIDs.
+  elseif ($options['range']['range_type'] != 'all' || !empty($filters)) {
+    $options['sids'] = webform_confirm_email_download_sids($form_state['values']['node']->nid, $form_state['values']['range'], NULL, $filters);
+  }
+
+  // Determine an appropriate batch size based on the form and server specs.
+  if (!isset($options['range']['batch_size'])) {
+    // Start the batch size at 50,000 per batch, but divide by number of
+    // components in the form. e.g. If a form had 10 components, it would
+    // export 5,000 submissions at a time.
+    $batch_size = ceil(50000 / max(1, count($form_state['values']['node']->webform['components'])));
+    
+    // Every 32MB of additional memory after 64MB adds a multiplier in size.
+    $memory_limit = parse_size(ini_get('memory_limit'));
+    $mb = 1048576;
+    $memory_modifier = max(1, ($memory_limit - (64 * $mb)) / (32 * $mb));
+    $batch_size = ceil($batch_size * $memory_modifier);
+    
+    // For time reasons, limit the batch size to 10,000.
+    $batch_size = min($batch_size, 10000);
+    
+    // Allow a non-UI configuration to override the batch size.
+    $batch_size = variable_get('webform_export_batch_size', $batch_size);
+    
+    $options['range']['batch_size'] = $batch_size;
+  } 
+  
+  $options['file_name'] = _webform_export_tempname();
+
+  // Set up a batch to export the results.
+  $batch = webform_results_export_batch($node, $format, $options);
+  batch_set($batch);
+}
+
+/**
+ * Copied and adapted from webform/includes/webform.report.inc: 
+ * function webform_download_sids
+ */
+function webform_confirm_email_download_sids($nid, $range_options, $uid = NULL, $filters = NULL) {
+  $query = db_select('webform_submissions', 'ws')
+    ->fields('ws', array('sid'))
+    ->condition('nid', $nid)
+    ->addTag('webform_download_sids');
+
+  if (isset($filters) == TRUE) {
+    foreach($filters as $column => $value) {
+      $query->condition($column, $value);
+    }
+  }
+
+  switch ($range_options['range_type']) {
+    case 'all':
+      // All Submissions.
+      $query->orderBy('sid', 'ASC');
+      break;
+    case 'new':
+      // All Since Last Download.
+      $download_info = webform_download_last_download_info($nid, $uid);
+      $last_sid = $download_info ? $download_info['sid'] : 0;
+      $query
+        ->condition('sid', $last_sid, '>')
+        ->orderBy('sid', 'ASC');
+      break;
+    case 'latest':
+      // Last x Submissions.
+      $start_sid = webform_download_latest_start_sid($nid, $range_options['latest'], $range_options['completion_type']);
+      $query->condition('sid', $start_sid, '>=');
+      break;
+    case 'range':
+      // Submissions Start-End.
+      $query->condition('sid', $range_options['start'], '>=');
+      if ($range_options['end']){
+        $query->condition('sid', $range_options['end'], '<=');
+      }
+      $query->orderBy('sid', 'ASC');
+      break;
+    case 'range_serial':
+      // Submissions Start-End, using serial numbers.
+      $query->condition('serial', $range_options['start'], '>=');
+      if ($range_options['end']){
+        $query->condition('serial', $range_options['end'], '<=');
+      }
+      $query->orderBy('serial', 'ASC');
+      break;
+  }
+
+  // Filter down to draft or finished submissions.
+  if (!empty($range_options['completion_type']) && $range_options['completion_type'] !== 'all') {
+    $query->condition('is_draft', (int) ($range_options['completion_type'] === 'draft'));
+  }
+    // Set batch properties. Unfortunately the pager query class reads directly
+  // from $_GET['page'] to determine the current page number, so we have to set
+  // this super-global and then restore it after executing the query.
+  if (isset($range_options['batch_number']) && isset($range_options['batch_size'])) {
+    if (isset($_GET['page'])) {
+      $current_page = $_GET['page'];
+    }
+    $_GET['page'] = $range_options['batch_number'];
+    $query = $query->extend('PagerDefault');
+    $query->limit($range_options['batch_size']);
+    $query->element(0);
+  }
+
+  $sids = $query->execute()->fetchCol();
+
+  // Restore the current page number (if any).
+  if (isset($current_page)) {
+    $_GET['page'] = $current_page;
+  }
+
+  return $sids;
 }
