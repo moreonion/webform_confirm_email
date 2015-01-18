@@ -244,7 +244,9 @@ function webform_confirm_email_confirmation($node,
     $redirect_url,
     array(
       'query' => array(
-        'share' => 'node/' . $node->nid,
+        'share'   => 'node/' . $node->nid,
+        'sid'     => $submission->sid,
+        'confirm' => true,
       ),
     )
   );
