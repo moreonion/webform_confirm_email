@@ -179,7 +179,7 @@ function webform_confirm_email_uninstall() {
 /**
  * Add database field confirmed to webform_submissions table.
  */
-function webform_confirm_email_update_7202() {
+function webform_confirm_email_update_7203() {
   _webform_confirm_email_add_column_to_webform_submissions();
 }
 
