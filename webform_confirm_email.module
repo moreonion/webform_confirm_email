@@ -370,6 +370,49 @@ function webform_confirm_email_token_info_alter(&$data) {
   );
 }
 
+
+/**
+* Implementation hook_token_info().
+*/
+function webform_confirm_email_token_info() {
+  $info['types']['webform_submission'] = array(
+    'name'        => t('Webform Submission'),
+    'description' => t('The Webform Submission'),
+  );
+  $info['tokens']['webform_submission'] = array(
+    'sid' => array(
+      'name'        => t('Webform submission ID'),
+      'description' => t('The webform submission ID.'),
+    ),
+    'nid' => array(
+      'name'        => t('Node ID'),
+      'description' => t('The node ID where the webform belongs to.'),
+    ),
+    'submitted' => array(
+      'name'        => t('Submission timestamp'),
+      'description' => t('Time when the webform was submitted.'),
+    ),
+    'remote_addr' => array(
+      'name'        => t('IP address of the submitter'),
+      'description' => t('The IP address of the submitter.'),
+    ),
+    'uid' => array(
+      'name'        => t('User ID'),
+      'description' => t('Drupal user ID.'),
+    ),
+    'name' => array(
+      'name'        => t('User name'),
+      'description' => t('The name of the drupal user.'),
+    ),
+    'is_draft' => array(
+      'name'        => t('Submission is in draft mode'),
+      'description' => t('True if webform is in draft mode.'),
+    ),
+  );
+
+  return $info;
+}
+
 /**
  * Implements hook_tokens().
  */
@@ -428,6 +471,18 @@ function webform_confirm_email_tokens($type, $tokens, array $data = array(), arr
 
       $replacements['[submission:confirm_url]'] = $confirm_url;
     }
+  }
+  elseif ($type === 'webform_submission' && !empty($tokens)) {
+    foreach ($tokens as $key => $repl_str) {
+      if (isset($data['webform_submission']->$key)) {
+        $replacements[$repl_str] = $data['webform_submission']->$key;
+      }
+    }
+    dpm($type, 'type');
+    dpm($tokens, 'tokens');
+    dpm($data, 'data');
+    dpm($options, 'options');
+
   }
 
   return $replacements;
@@ -605,7 +660,7 @@ function webform_confirm_email_form_webform_results_download_form_alter(&$form, 
 }
 
 /**
- * Copied and adapted from webform/includes/webform.report.inc: 
+ * Copied and adapted from webform/includes/webform.report.inc:
  * function webform_results_download_form_submit
  */
 function webform_confirm_email_results_download_form_submit(&$form, &$form_state) {
@@ -634,11 +689,11 @@ function webform_confirm_email_results_download_form_submit(&$form, &$form_state
   $defaults = webform_results_download_default_options($node, $format);
   $options += $defaults;
   $options['range'] += $defaults['range'];
-  
+
   // Use a pre-built list of SIDs provided by validate handlers (if any).
   if (isset($form_state['values']['sids'])) {
     $options['sids'] = $form_state['values']['sids'];
-  } 
+  }
   // Retrieve the list of required SIDs.
   elseif ($options['range']['range_type'] != 'all' || !empty($filters)) {
     $options['sids'] = webform_confirm_email_download_sids($form_state['values']['node']->nid, $form_state['values']['range'], NULL, $filters);
@@ -650,22 +705,22 @@ function webform_confirm_email_results_download_form_submit(&$form, &$form_state
     // components in the form. e.g. If a form had 10 components, it would
     // export 5,000 submissions at a time.
     $batch_size = ceil(50000 / max(1, count($form_state['values']['node']->webform['components'])));
-    
+
     // Every 32MB of additional memory after 64MB adds a multiplier in size.
     $memory_limit = parse_size(ini_get('memory_limit'));
     $mb = 1048576;
     $memory_modifier = max(1, ($memory_limit - (64 * $mb)) / (32 * $mb));
     $batch_size = ceil($batch_size * $memory_modifier);
-    
+
     // For time reasons, limit the batch size to 10,000.
     $batch_size = min($batch_size, 10000);
-    
+
     // Allow a non-UI configuration to override the batch size.
     $batch_size = variable_get('webform_export_batch_size', $batch_size);
-    
+
     $options['range']['batch_size'] = $batch_size;
-  } 
-  
+  }
+
   $options['file_name'] = _webform_export_tempname();
 
   // Set up a batch to export the results.
@@ -674,7 +729,7 @@ function webform_confirm_email_results_download_form_submit(&$form, &$form_state
 }
 
 /**
- * Copied and adapted from webform/includes/webform.report.inc: 
+ * Copied and adapted from webform/includes/webform.report.inc:
  * function webform_download_sids
  */
 function webform_confirm_email_download_sids($nid, $range_options, $uid = NULL, $filters = NULL) {
