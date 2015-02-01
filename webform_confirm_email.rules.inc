@@ -8,7 +8,7 @@
  */
 function webform_confirm_email_rules_data_info() {
   return array(
-    'webform_submission' => array(
+    'webform-submission' => array(
       'label'         => t('Webform submission'),
       'wrap'          => TRUE,
       'property info' => _webform_confirm_email_rules_webform_submission_data_info(),
@@ -76,7 +76,7 @@ function webform_confirm_email_rules_event_info() {
         ),
         'submission' => array(
           'label'       => t('Webform submission'),
-          'type'        => 'webform_submission',
+          'type'        => 'webform-submission',
           'description' => t('The webform submission for which an email was confirmed.'),
         )
       ),

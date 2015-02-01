@@ -375,39 +375,43 @@ function webform_confirm_email_token_info_alter(&$data) {
 * Implementation hook_token_info().
 */
 function webform_confirm_email_token_info() {
-  $info['types']['webform_submission'] = array(
-    'name'        => t('Webform Submission'),
-    'description' => t('The Webform Submission'),
+  $info['types']['webform-submission'] = array(
+    'name'        => t('Submission'),
+    'description' => t('Tokens related to webform submissions.'),
+    'needs-data'  => 'submission',
   );
-  $info['tokens']['webform_submission'] = array(
-    'sid' => array(
-      'name'        => t('Webform submission ID'),
-      'description' => t('The webform submission ID.'),
-    ),
-    'nid' => array(
-      'name'        => t('Node ID'),
-      'description' => t('The node ID where the webform belongs to.'),
-    ),
-    'submitted' => array(
-      'name'        => t('Submission timestamp'),
-      'description' => t('Time when the webform was submitted.'),
-    ),
-    'remote_addr' => array(
-      'name'        => t('IP address of the submitter'),
-      'description' => t('The IP address of the submitter.'),
-    ),
-    'uid' => array(
-      'name'        => t('User ID'),
-      'description' => t('Drupal user ID.'),
-    ),
-    'name' => array(
-      'name'        => t('User name'),
-      'description' => t('The name of the drupal user.'),
-    ),
-    'is_draft' => array(
-      'name'        => t('Submission is in draft mode'),
-      'description' => t('True if webform is in draft mode.'),
-    ),
+
+  $info['tokens']['webform-submission']['serial'] = array(
+    'name'        => t('Serial number'),
+    'description' => t('The serial number of this webform submission.'),
+  );
+  $info['tokens']['webform-submission']['sid'] = array(
+    'name'        => t('Submission ID'),
+    'description' => t('The unique indentifier for the webform submission.'),
+  );
+  $info['tokens']['webform-submission']['date'] = array(
+    'name'        => t('Date submitted'),
+    'description' => t('The date the webform was submitted.'),
+    'type'        => 'date',
+  );
+  $info['tokens']['webform-submission']['ip-address'] = array(
+    'name'        => t('IP address'),
+    'description' => t('The IP address that was used when submitting the webform.'),
+  );
+  $info['tokens']['webform-submission']['user'] = array(
+    'name'        => t('Submitter'),
+    'description' => t('The user that submitted the webform result.'),
+    'type'        => 'user',
+  );
+  $info['tokens']['webform-submission']['url'] = array(
+    'name'        => t('URL'),
+    'description' => t("Webform tokens related to the submission's URL."),
+    'type'        => 'url',
+  );
+  $info['tokens']['webform-submission']['edit-url'] = array(
+    'name'        => t('Edit URL'),
+    'description' => t("Webform tokens related to the submission's Edit URL."),
+    'type'        => 'url',
   );
 
   return $info;
@@ -418,13 +422,26 @@ function webform_confirm_email_token_info() {
  */
 function webform_confirm_email_tokens($type, $tokens, array $data = array(), array $options = array()) {
   $replacements = array();
+  if ($type !== 'submission' && $type !== 'webform-submission' || empty($data['webform-submission'])) {
+    return $replacements;
+  }
+
+  $submission  = $data['webform-submission'];
+  $sanitize    = !empty($options['sanitize']);
+  $url_options = array('absolute' => TRUE);
+  if (isset($options['language'])) {
+    $url_options['language'] = $options['language'];
+    $language_code           = $options['language']->language;
+  }
+  else {
+    $language_code = NULL;
+  }
+  $node = isset($data['node']) ? $data['node'] : node_load($submission->nid);
   if (   $type === 'submission'
       && isset($tokens['confirm_url'])
-      && !empty($data['node'])
-      && !empty($data['webform-submission'])
       && !empty($data['webform-email'])) {
-    $nid = (int) ($data['node']->nid);
-    $sid = (int) ($data['webform-submission']->sid);
+    $nid = (int) ($node->nid);
+    $sid = (int) ($submission->sid);
     $eid = (int) $data['webform-email']['eid'];
     if (webform_confirm_email_get_email_type($nid, $eid) == WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST) {
       $obj = array(
@@ -472,17 +489,49 @@ function webform_confirm_email_tokens($type, $tokens, array $data = array(), arr
       $replacements['[submission:confirm_url]'] = $confirm_url;
     }
   }
-  elseif ($type === 'webform_submission' && !empty($tokens)) {
+  elseif ($type === 'webform-submission' && !empty($tokens)) {
     foreach ($tokens as $key => $repl_str) {
-      if (isset($data['webform_submission']->$key)) {
-        $replacements[$repl_str] = $data['webform_submission']->$key;
+      switch ($key) {
+        case 'serial':
+          $replacements[$repl_str] = $submission->serial ? $submission->serial : '';
+          break;
+        case 'sid':
+          $replacements[$repl_str] = $submission->sid ? $submission->sid : '';
+          break;
+        case 'date':
+          $replacements[$repl_str] = format_date($submission->submitted, 'medium', '', NULL, $language_code);
+          break;
+        case 'ip-address':
+          $replacements[$repl_str] = $sanitize ? check_plain($submission->remote_addr) : $submission->remote_addr;
+          break;
+        case 'user':
+          $account                 = user_load($submission->uid);
+          $name                    = format_username($account);
+          $replacements[$repl_str] = $sanitize ? check_plain($name) : $name;
+          break;
+        case 'url':
+          $replacements[$repl_str] = $submission->sid ? url("node/{$node->nid}/submission/{$submission->sid}", $url_options) : '';
+          break;
+        case 'edit-url':
+          $replacements[$repl_str] = $submission->sid ? url("node/{$node->nid}/submission/{$submission->sid}/edit", $url_options) : '';
+          break;
       }
     }
-    dpm($type, 'type');
-    dpm($tokens, 'tokens');
-    dpm($data, 'data');
-    dpm($options, 'options');
-
+    // Chained token relationships.
+    if ($date_tokens = token_find_with_prefix($tokens, 'date')) {
+      $replacements += token_generate('date', $date_tokens, array('date' => $submission->submitted), $options);
+    }
+    if (($user_tokens = token_find_with_prefix($tokens, 'user')) && $account = user_load($submission->uid)) {
+      $replacements += token_generate('user', $user_tokens, array('user' => $account), $options);
+    }
+    if ($submission->sid) {
+      if ($url_tokens = token_find_with_prefix($tokens, 'url')) {
+        $replacements += token_generate('url', $url_tokens, array('path' => "node/{$node->nid}/submission/{$submission->sid}"), $options);
+      }
+      if ($url_tokens = token_find_with_prefix($tokens, 'edit-url')) {
+        $replacements += token_generate('url', $url_tokens, array('path' => "node/{$node->nid}/submission/{$submission->sid}/edit"), $options);
+      }
+    }
   }
 
   return $replacements;
