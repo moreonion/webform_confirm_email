@@ -164,10 +164,6 @@ function webform_confirm_email_confirmation($node,
 
       $email_message['params']['webform_confirm_email_confirmation_send'] = TRUE;
 
-      // this function from the webform module sets HTML support for
-      // the mimemail module
-      webform_email_html_capable();
-
       $email_message = drupal_mail(
         $email_message['module'],
         $email_message['key'],
