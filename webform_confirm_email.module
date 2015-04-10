@@ -842,3 +842,13 @@ function webform_confirm_email_download_sids($nid, $range_options, $uid = NULL, 
 
   return $sids;
 }
+
+/**
+ * Implements hook_views_api().
+ */
+function webform_confirm_email_views_api() {
+  return array(
+    'api'  => 3.0,
+    'path' => drupal_get_path('module', 'webform_confirm_email') . '/views',
+  );
+}
