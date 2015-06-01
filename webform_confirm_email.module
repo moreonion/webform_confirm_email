@@ -466,7 +466,7 @@ function webform_confirm_email_cron() {
     '  INNER JOIN {webform_confirm_email} confirm ' .
     '    ON code.nid = confirm.nid ' .
     '  WHERE confirm.request_lifetime IS NOT NULL ' .
-    '  GROUP BY confirm.nid '
+    '  GROUP BY confirm.nid, confirm.request_lifetime, confirm.delete_submissions '
     )->fetchAllAssoc('nid');
 
   if (!empty($nids_lifetime)) {
