@@ -303,14 +303,12 @@ function webform_confirm_email_confirmation($node,
     }
   }
 
-  drupal_goto(
-    $redirect_url,
-    array(
-      'query' => array(
-        'share' => 'node/' . $node->nid,
-      ),
-    )
+  $redirect = array(
+    'path' => $redirect_url,
+    'code' => 302,
   );
+  drupal_alter('webform_confirm_email_confirmation_redirect', $redirect, $node, $submission);
+  drupal_goto($redirect['path'], $redirect, $redirect['code']);
 }
 
 /**
