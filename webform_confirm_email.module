@@ -244,16 +244,17 @@ function webform_confirm_email_confirmation($node,
     }
   }
 
-  drupal_goto(
-    $redirect_url,
-    array(
-      'query' => array(
-        'sid'     => $submission->sid,
-        'confirm' => TRUE,
-        'token'   => md5($submission->submitted . $submission->sid . drupal_get_private_key()),
-      ),
-    )
+  $redirect = array(
+    'path' => $redirect_url,
+    'code' => 302,
+    'query' => array(
+      'sid'     => $submission->sid,
+      'confirm' => TRUE,
+      'token'   => md5($submission->submitted . $submission->sid . drupal_get_private_key()),
+    ),
   );
+  drupal_alter('webform_confirm_email_confirmation_redirect', $redirect, $node, $submission);
+  drupal_goto($redirect['path'], $redirect, $redirect['code']);
 }
 
 /**
