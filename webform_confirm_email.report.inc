@@ -184,6 +184,7 @@ function webform_confirm_email_results_table($node, $pager_count = 0) {
   $filters = _webform_confirm_email_get_submission_filters($node);
   // Get all the submissions for the node.
   $header = theme('webform_results_table_header', array('node' => $node));
+  module_load_include('inc', 'webform', 'includes/webform.submissions');
   $submissions = webform_get_submissions($filters, $header, $pager_count);
   $total_count = webform_get_submission_count($node->nid);
   $confirmed_form = drupal_get_form('webform_confirm_email_confirmed_filter_form');
@@ -207,6 +208,16 @@ function webform_confirm_email_results_table($node, $pager_count = 0) {
 
 function theme_webform_confirm_email_results_table($variables) {
   $output = drupal_render($variables['confirmed_form']);
+  module_load_include('inc', 'webform', 'includes/webform.report');
+
+  if (!isset($variables['header'])) {
+    $variables['header'] = array();
+  }
+
+  if (!isset($variables['extra_data'])) {
+    $variables['extra_data'] = array();
+  }
+
   $output .= theme_webform_results_table($variables);
 
   return $output;
