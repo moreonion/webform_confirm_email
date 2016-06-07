@@ -862,3 +862,42 @@ function webform_confirm_email_views_api() {
     'path' => drupal_get_path('module', 'webform_confirm_email') . '/views',
   );
 }
+
+/**
+ * Implements hook_node_export_alter().
+ */
+function webform_confirm_email_node_export_alter(array &$nodes, $format) {
+
+  $module = 'webform_confirm_email';
+
+  foreach ($nodes as $i => &$node) {
+    foreach ($node->webform['emails'] as $eid => &$email) {
+      $email[$module] = db_select($module)
+        ->fields($module)
+        ->condition('nid', $node->nid)
+        ->condition('eid', $eid)
+        ->execute()
+        ->fetch();
+    }
+  }
+}
+
+/**
+ * Implements hook_node_export_after_import_alter().
+ */
+function webform_confirm_email_node_export_after_import_alter(array &$nodes, $format, $save) {
+
+  $module = 'webform_confirm_email';
+
+  foreach ($nodes as $node) {
+    foreach ($node->webform['emails'] as $eid => $email) {
+
+      $email['nid'] = $node->nid;
+
+      if (is_object($email[$module])) {
+        $email[$module]->nid = $node->nid;
+        drupal_write_record($module, $email[$module]);
+      }
+    }
+  }
+}
