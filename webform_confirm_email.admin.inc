@@ -329,7 +329,30 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
       '#eid'             => $eid,
       '#submit'          => array('webform_confirm_email_email_delete'),
     );
+    if (isset($form['emails'][$eid]['status'])) {
+      $form['emails'][$eid]['status']['#access'] = FALSE;
+    }
   }
+  $form['status'] = array(
+    '#type'          => 'checkbox',
+    '#default_value' => TRUE,
+    '#access'        => FALSE,
+  );
+  $form['email_option'] = array(
+    '#type'    => 'radios',
+    '#options' => array(
+      'custom'    => t('Address'),
+      'component' => t('Component value'),
+    ),
+    '#default_value' => 'custom',
+    '#access'        => FALSE,
+  );
+  $form['email_custom'] = array(
+    '#type'      => 'textfield',
+    '#size'      => 24,
+    '#maxlength' => 500,
+    '#access'    => FALSE,
+  );
   unset($form['add']);
   $form['emails']['add_button'] = array(
     '#type'   => 'submit',
