@@ -290,10 +290,29 @@ function _webform_confirm_email_edit_confirmation_email_submit($form, &$form_sta
  * helper function to make the validate and submit handlers of webform happy
  */
 function webform_confirm_email_webform_emails_form_validate(&$form, &$form_state) {
-
   foreach(array('email_option', 'email_component') as $index) {
     if (isset($form_state['values'][$index]) == FALSE) {
       $form_state['values'][$index] = NULL;
+    }
+  }
+  if (!isset($form_state['values']['status'])) {
+    $form_state['values']['status'] = 1;
+  }
+
+  if (   isset($form_state['triggering_element']['#submit'][0])
+      && $form_state['triggering_element']['#submit'][0] == 'webform_emails_form_status_save') {
+    if (isset($form_state['values']['emails']['add_button'])) {
+      unset($form_state['values']['emails']['add_button']);
+    }
+    foreach($form_state['values']['confirmation_request'] as $eid => $email) {
+      if ($eid != 'add_button') {
+        $form_state['values']['emails'][$eid]['status'] = $email['status'];
+      }
+    }
+    foreach($form_state['values']['confirmation'] as $eid => $email) {
+      if ($eid != 'add_button') {
+        $form_state['values']['emails'][$eid]['status'] = $email['status'];
+      }
     }
   }
 }
@@ -329,30 +348,7 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
       '#eid'             => $eid,
       '#submit'          => array('webform_confirm_email_email_delete'),
     );
-    if (isset($form['emails'][$eid]['status'])) {
-      $form['emails'][$eid]['status']['#access'] = FALSE;
-    }
   }
-  $form['status'] = array(
-    '#type'          => 'checkbox',
-    '#default_value' => TRUE,
-    '#access'        => FALSE,
-  );
-  $form['email_option'] = array(
-    '#type'    => 'radios',
-    '#options' => array(
-      'custom'    => t('Address'),
-      'component' => t('Component value'),
-    ),
-    '#default_value' => 'custom',
-    '#access'        => FALSE,
-  );
-  $form['email_custom'] = array(
-    '#type'      => 'textfield',
-    '#size'      => 24,
-    '#maxlength' => 500,
-    '#access'    => FALSE,
-  );
   unset($form['add']);
   $form['emails']['add_button'] = array(
     '#type'   => 'submit',
@@ -377,6 +373,7 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
 
   $form['confirmation_request'] = array();
   foreach ($query as $eid => $redirect_url) {
+    $form['confirmation_request'][$eid]['status']       = $form['emails'][$eid]['status'];
     $form['confirmation_request'][$eid]['email']        = $form['emails'][$eid]['email'];
     $form['confirmation_request'][$eid]['subject']      = $form['emails'][$eid]['subject'];
     $form['confirmation_request'][$eid]['from']         = $form['emails'][$eid]['from'];
@@ -416,6 +413,7 @@ function webform_confirm_email_form_webform_emails_form_alter(&$form, &$form_sta
   $form['confirmation'] = array();
 
   foreach ($eids as $eid) {
+    $form['confirmation'][$eid]['status']  = $form['emails'][$eid]['status'];
     $form['confirmation'][$eid]['email']   = $form['emails'][$eid]['email'];
     $form['confirmation'][$eid]['subject'] = $form['emails'][$eid]['subject'];
     $form['confirmation'][$eid]['from']    = $form['emails'][$eid]['from'];
@@ -537,6 +535,7 @@ function theme_webform_confirm_email_emails_form($variables) {
   $form = &$variables['form'];
   $node = &$form['#node'];
   $header = array(
+    t('Send'),
     t('E-mail to'),
     t('Subject'),
     t('From'),
@@ -546,6 +545,7 @@ function theme_webform_confirm_email_emails_form($variables) {
     )
   );
   $header_confirmation_request = array(
+    t('Send'),
     t('E-mail to'),
     t('Subject'),
     t('From'),
@@ -575,6 +575,7 @@ function theme_webform_confirm_email_emails_form($variables) {
       foreach ($eids as $eid) {
         // Add each component to a table row.
         $new_row = array(
+          drupal_render($form[$email_type][$eid]['status']),
           drupal_render($form[$email_type][$eid]['email']),
           drupal_render($form[$email_type][$eid]['subject']),
           drupal_render($form[$email_type][$eid]['from']),
@@ -589,24 +590,26 @@ function theme_webform_confirm_email_emails_form($variables) {
       }
     }
     else {
+      $cs_width = 5;
       switch($email_type) {
         case 'emails':
           $no_email_comment = t('Currently not sending standard e-mails, add a standard email by clicking the button below.');
           break;
         case 'confirmation_request':
           $no_email_comment = t('Currently not sending confirmation request e-mails, add a confirmation request email by clicking the button below.');
+          $cs_width = 6;
           break;
         case 'confirmation':
           $no_email_comment = t('Currently not sending confirmation e-mails, add a confirmation email by clicking the button below.');
           break;
       }
-      $rows[] = array(array('data' => $no_email_comment, 'colspan' => 5));
+      $rows[] = array(array('data' => $no_email_comment, 'colspan' => $cs_width));
     }
 
     // Add a row containing form elements for a new item.
     $row_add_email = array(
       array(
-        'colspan' => ($email_type == 'confirmation_request') ? 4 : 3,
+        'colspan' => ($email_type == 'confirmation_request') ? 5 : 4,
         'data'    => drupal_render($form[$email_type]['add'])
       ),
       array(
