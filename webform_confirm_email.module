@@ -90,8 +90,8 @@ function webform_confirm_email_generate_key($nid, $sid, $eid, $email = NULL) {
  * in the webform_confirm_email table that identifies the email as being a
  * confirmation request or confirmation email.
  * If it's a confirmational mail a hash code is generated, an URL is generated
- * out of the hash and the "%confirm_url" is replaced in the email by this generated
- * confirmation URL.
+ * out of the hash and the [submission:confirm_url] is replaced in the email by
+ * this generated confirmation URL.
  * If it's a confirmation email, the email is stopped from being send; This is because
  * after a webform submission the webform module would send all emails that are
  * registered for this form; but we want the confirmation email to be send only when
@@ -557,16 +557,17 @@ The forms for changing the 3 different webform email settings (from address,
 from name, to address, to name, ...) is the same as the webform email settings
 form.  The only difference is in the 2nd email type, the "confirmation request
 email", where you have an added entry in the "Token values" list, here you\'ll
-find the %confirm_url token that should be used in confirmation request emails.
+find the [submission:confirm_url] token that should be used in confirmation
+request emails.
 This token will be expanded to the confirmation link. So as an example the
 content of your "E-mail template" could look like this:
 <br>
 <br>
-"Hallo %value[first_name] %value[last_name],
+"Hallo [submission:values:first_name] [submission:values:last_name],
 <br>
 <br>
 <p style="text-indent:2em;">please visit the link below to confirm your submission.</p>
-%confirm_url
+[submission:confirm_url]
 <br>
 <br>
 Thank you!
