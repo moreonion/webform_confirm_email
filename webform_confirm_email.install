@@ -123,18 +123,15 @@ function webform_confirm_email_schema() {
 
 /**
  * Implements hook_schema_alter().
- *
  */
 function webform_confirm_email_schema_alter(&$schema) {
-  if (isset($schema['webform_submissions']) == TRUE) {
-    $schema['webform_submissions']['confirmed'] = array(
-      'description' => 'True if the email address for this submission was already confirmed.',
-      'type'        => 'int',
-      'size'        => 'tiny',
-      'not null'    => TRUE,
-      'default'     => 0,
-    );
-  }
+  $schema['webform_submission']['fields']['confirmed'] = array(
+    'description' => 'True if the email address for this submission was already confirmed.',
+    'type'        => 'int',
+    'size'        => 'tiny',
+    'not null'    => TRUE,
+    'default'     => 0,
+  );
 }
 
 /**
