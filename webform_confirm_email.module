@@ -483,6 +483,9 @@ function webform_confirm_email_tokens($type, $tokens, array $data = array(), arr
         drupal_write_record('webform_confirm_email_code', $obj);
       }
 
+      if (!empty($data['webform-email']['html'])) {
+        $confirm_url = "<a href=\"$confirm_url\">$confirm_url</a>";
+      }
       $replacements['[submission:confirm_url]'] = $confirm_url;
     }
   }
