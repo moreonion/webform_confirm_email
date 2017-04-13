@@ -177,6 +177,17 @@ function webform_confirm_email_uninstall() {
 // *****************************************
 
 /**
+ * Migrate old-style tokens.
+ */
+function webform_confirm_email_update_7204() {
+  $sql = <<<SQL
+UPDATE {webform_emails}
+SET template=REPLACE(template, '%confirm_url', '[submission:confirm_url]')
+SQL;
+  db_query($sql);
+}
+
+/**
  * Add database field confirmed to webform_submissions table.
  */
 function webform_confirm_email_update_7203() {
