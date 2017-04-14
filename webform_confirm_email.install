@@ -113,7 +113,7 @@ function webform_confirm_email_schema() {
  * Implements hook_schema_alter().
  */
 function webform_confirm_email_schema_alter(&$schema) {
-  $schema['webform_submission']['fields']['confirmed'] = array(
+  $schema['webform_submissions']['fields']['confirmed'] = array(
     'description' => 'True if the email address for this submission was already confirmed.',
     'type'        => 'int',
     'size'        => 'tiny',
