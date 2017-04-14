@@ -586,12 +586,9 @@ Your petition team"';
 function webform_confirm_email_cron() {
   // get all node id's that we have to check for expired requests
   $nids_lifetime = db_query(
-    'SELECT confirm.nid, confirm.request_lifetime, confirm.delete_submissions ' .
-    '  FROM {webform_confirm_email_code} code ' .
-    '  INNER JOIN {webform_confirm_email} confirm ' .
-    '    ON code.nid = confirm.nid ' .
-    '  WHERE confirm.request_lifetime IS NOT NULL ' .
-    '  GROUP BY confirm.nid, confirm.request_lifetime, confirm.delete_submissions'
+    'SELECT nid, confirm_email_request_lifetime, confirm_email_delete_submissions ' .
+    '  FROM {webform} ' .
+    '  WHERE confirm_email_request_lifetime IS NOT NULL '
     )->fetchAllAssoc('nid');
 
   if (!empty($nids_lifetime)) {
@@ -599,7 +596,7 @@ function webform_confirm_email_cron() {
       $expired_sids = array();
       // calculate the oldets timestamp that is still not expired
       // for this nid;
-      $timestamp = REQUEST_TIME - $settings->request_lifetime;
+      $timestamp = REQUEST_TIME - $settings->confirm_email_request_lifetime;
       $expired_sids[$nid] = db_query(
         'SELECT sid ' .
         '  FROM {webform_confirm_email_code} ' .
@@ -630,7 +627,7 @@ function webform_confirm_email_cron() {
         );
       }
       module_invoke_all('webform_confirm_email_request_expired', $expired_sids);
-      if ($settings->delete_submissions) {
+      if ($settings->confirm_email_delete_submissions) {
         require_once drupal_get_path('module', 'webform') . '/includes/webform.submissions.inc';
         $node = node_load($nid);
         foreach ($expired_sids[$nid] as $sid) {
