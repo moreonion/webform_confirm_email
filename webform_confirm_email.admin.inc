@@ -676,7 +676,7 @@ function webform_confirm_email_settings($form, &$form_state, $node) {
   if ($request_lifetime) {
     $lifetime['days']    = (int) ($request_lifetime / 86400);
     $lifetime['hours']   = (int)(($request_lifetime % 86400) / 3600);
-    $lifetime['minutes'] = (int)(($request_lifetime % 86400) % 3600) / 60;
+    $lifetime['minutes'] = (int)(($request_lifetime % 3600) / 60);
     foreach (array('days', 'hours', 'minutes') as $key) {
       if ($lifetime[$key] == 0) {
         $lifetime[$key] = NULL;
