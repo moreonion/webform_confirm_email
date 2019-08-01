@@ -144,6 +144,7 @@ function webform_confirm_email_confirmation($node,
       '  AND   sid = :sid ',
       array(':nid' => $node->nid, ':sid' => $submission->sid)
     );
+    $submission->confirmed = 1;
     $email_messages = db_query(
       'SELECT email_message ' .
       '  FROM {webform_confirm_email_confirmation_emails} ' .
