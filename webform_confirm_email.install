@@ -30,12 +30,6 @@ function webform_confirm_email_schema() {
         'unsigned'    => TRUE,
         'not null'    => TRUE,
       ),
-      'code' => array(
-        'description' => 'The hash code used for the confirmation link of a webform submission to be confirmed.',
-        'type'        => 'char',
-        'length'      => 32,
-        'not null'    => TRUE,
-      ),
       'datetime' => array(
         'description' => 'Creation timestamp used for cron job cleanup of confirmation mails that exceeded their storage lifetime set by the admin',
         'type'        => 'int',
@@ -186,6 +180,13 @@ function webform_confirm_email_uninstall() {
 // *****************************************
 // **************** UPDATES ****************
 // *****************************************
+
+/**
+ * Drop {webform_confirm_email_cod}.code.
+ */
+function webform_confirm_email_update_7206() {
+  db_drop_field('webform_confirm_email_code', 'code');
+}
 
 /**
  * Migrate to expiration config columns in {webform}.

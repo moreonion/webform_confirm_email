@@ -65,21 +65,6 @@ function webform_confirm_email_get_email_type($nid, $eid) {
  *   The hash for this submission / email.
  */
 function webform_confirm_email_generate_key($nid, $sid, $eid) {
-  $result = db_query(
-    'SELECT code ' .
-    '  FROM {webform_confirm_email_code} ' .
-    '    WHERE nid = :nid ' .
-    '    AND   sid = :sid ' .
-    '    AND   eid = :eid ',
-    array(
-      ':nid' => $nid,
-      ':sid' => $sid,
-      ':eid' => $eid,
-    )
-  );
-  if ($code = $result->fetchField()) {
-    return $code;
-  }
   $data = "webform-confirm-email-code:$nid:$sid:$eid";
   return drupal_hmac_base64($data, drupal_get_private_key());
 }
@@ -449,7 +434,6 @@ function webform_confirm_email_tokens($type, $tokens, array $data = array(), arr
         'eid'   => $eid,
         'email' => $data['webform-email']['email'],
       );
-      $obj['code']     = '';
       $obj['datetime'] = REQUEST_TIME;
       $confirm_url = url(
         "node/$nid/sid/$sid/eid/$eid/confirm_email/$code",
