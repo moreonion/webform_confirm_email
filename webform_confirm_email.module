@@ -18,12 +18,7 @@ include_once 'webform_confirm_email.inc';
  *   The Webform submission that was just deleted from the database.
  */
 function webform_confirm_email_webform_submission_delete($node, $submission) {
-  db_delete('webform_confirm_email_code')
-    ->condition('nid', $node->nid)
-    ->condition('sid', $submission->sid)
-    ->execute();
-
-  db_delete('webform_confirm_email_confirmation_emails')
+  db_delete('webform_confirm_email_queued_emails')
     ->condition('nid', $node->nid)
     ->condition('sid', $submission->sid)
     ->execute();
@@ -92,12 +87,13 @@ function webform_confirm_email_mail_alter(&$message) {
     if (   webform_confirm_email_get_email_type($nid, $eid) == WEBFORM_CONFIRM_EMAIL_CONFIRMATION
         && isset($message['params']['webform_confirm_email_confirmation_send']) == FALSE) {
       $obj = array(
-        'nid'           => $nid,
-        'sid'           => $sid,
-        'email_message' => $message,
+        'nid' => $nid,
+        'sid' => $sid,
+        'email' => $message,
+        'created' => $_SERVER['REQUEST_TIME'],
       );
       $message['send'] = FALSE; // prevents drupal_mail from actually sending the message
-      drupal_write_record('webform_confirm_email_confirmation_emails', $obj);
+      drupal_write_record('webform_confirm_email_queued_emails', $obj);
     }
   }
 }
@@ -120,31 +116,21 @@ function webform_confirm_email_confirmation_access($node, $submission, $eid, $co
  * action. The user simply redirected to the appropriate URL.
  */
 function webform_confirm_email_confirmation($node, $submission, $eid) {
-  db_delete('webform_confirm_email_code')
+  db_update('webform_submissions')
+    ->fields(array('confirmed' => 1))
     ->condition('nid', $node->nid)
     ->condition('sid', $submission->sid)
-    ->condition('eid', $eid)
     ->execute();
-  db_query(
-    'UPDATE {webform_submissions} ' .
-    '  SET confirmed = 1 ' .
-    '  WHERE nid = :nid ' .
-    '  AND   sid = :sid ',
-    array(':nid' => $node->nid, ':sid' => $submission->sid)
-  );
   $submission->confirmed = 1;
-  $email_messages = db_query(
-    'SELECT email_message ' .
-    '  FROM {webform_confirm_email_confirmation_emails} ' .
-    '    WHERE nid = :nid ' .
-    '    AND   sid = :sid ' ,
-    array(
-      ':nid' => $node->nid,
-      ':sid' => $submission->sid,
-    )
-  )->fetchCol();
 
-  foreach ($email_messages as $email_message) {
+  $messages = db_select('webform_confirm_email_queued_emails', 'e')
+    ->fields('e', array('email'))
+    ->condition('nid', $node->nid)
+    ->condition('sid', $submission->sid)
+    ->execute()
+    ->fetchCol();
+
+  foreach ($messages as $email_message) {
     $email_message = unserialize($email_message);
     // Concatenate and wrap the e-mail body.
     if (is_array($email_message['body'])) {
@@ -181,15 +167,11 @@ function webform_confirm_email_confirmation($node, $submission, $eid) {
       );
     }
   }
-  db_query(
-    'DELETE FROM {webform_confirm_email_confirmation_emails} ' .
-    '  WHERE nid = :nid ' .
-    '  AND   sid = :sid ' ,
-    array(
-      ':nid' => $node->nid,
-      ':sid' => $submission->sid,
-    )
-  );
+  db_delete('webform_confirm_email_queued_emails')
+    ->condition('nid', $node->nid)
+    ->condition('sid', $submission->sid)
+    ->execute();
+
   // Let other modules react to the submission being confirmed.
   module_invoke_all('webform_confirm_email_email_confirmed', $node, $submission);
   if (module_exists('rules') == TRUE) {
@@ -535,40 +517,22 @@ function webform_confirm_email_cron() {
 
   if (!empty($nids_lifetime)) {
     foreach ($nids_lifetime as $nid => $settings) {
-      $expired_sids = array();
-      // calculate the oldets timestamp that is still not expired
-      // for this nid;
+      // Calculate the oldest timestamp that is still not expired for this nid.
       $timestamp = REQUEST_TIME - $settings->confirm_email_request_lifetime;
-      $expired_sids[$nid] = db_query(
-        'SELECT sid ' .
-        '  FROM {webform_confirm_email_code} ' .
-        '    WHERE nid = :nid ' .
-        '    AND   datetime < :oldest ' .
-        '  GROUP BY sid ' ,
-        array(
-          ':nid'    => $nid,
-          ':oldest' => $timestamp,
-        )
-      )->fetchCol();
 
-      if (!empty($expired_sids[$nid])) {
-        // delete requests from both tables (webform_confirm_email_code,
-        // webform_confirm_email_confirmation_emails) at once via JOIN
-        db_query(
-          'DELETE code, conf ' .
-          '  FROM {webform_confirm_email_code} code ' .
-          '  LEFT JOIN {webform_confirm_email_confirmation_emails} conf' .
-          '    ON  code.nid = conf.nid ' .
-          '    AND code.sid = conf.sid ' .
-          '  WHERE code.nid = :nid ' .
-          '  AND   code.sid in (:sids) ' ,
-          array(
-            ':nid'  => $nid,
-            ':sids' => $expired_sids[$nid],
-          )
-        );
-      }
-      module_invoke_all('webform_confirm_email_request_expired', $expired_sids);
+      $expired_sids[$nid] = db_select('webform_confirm_email_queued_emails', 'e')
+        ->fields('e', array('sid'))
+        ->condition('nid', $nid)
+        ->condition('created', $timestamp, '<')
+        ->groupBy('sid')
+        ->execute()
+        ->fetchCol();
+
+      db_delete('webform_confirm_email_queued_emails')
+        ->condition('nid', $nid)
+        ->condition('created', $timestamp, '<')
+        ->execute();
+
       if ($settings->confirm_email_delete_submissions) {
         require_once drupal_get_path('module', 'webform') . '/includes/webform.submissions.inc';
         $node = node_load($nid);
@@ -576,6 +540,9 @@ function webform_confirm_email_cron() {
           webform_submission_delete($node, webform_get_submission($nid, $sid));
         }
       }
+    }
+    if ($expired_sids) {
+      module_invoke_all('webform_confirm_email_request_expired', $expired_sids);
     }
   }
 }
