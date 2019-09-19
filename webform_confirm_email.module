@@ -110,11 +110,14 @@ function webform_confirm_email_confirmation_access($node, $submission, $eid, $co
 }
 
 /**
- * callback function that is set in hook_menu().
- * This function is called when a user clicks on the confirmation URL that
- * a submitee gets via email after the 1st submission.
- * If the submission code is found the confirmation mail is send and
- * the submission record is removed from the DB
+ * Page callback: User clicked on a confirmation link.
+ *
+ * When any confirmation link is clicked for the first time:
+ * - All the emails waiting for the confirmation are sent.
+ * - The submission is marked as confirmed.
+ *
+ * Later clicks on the same or other confirmation links will not lead to any
+ * action. The user simply redirected to the appropriate URL.
  */
 function webform_confirm_email_confirmation($node, $submission, $eid) {
   db_delete('webform_confirm_email_code')
@@ -178,32 +181,19 @@ function webform_confirm_email_confirmation($node, $submission, $eid) {
       );
     }
   }
-  $codes_left_to_be_confirmed = db_query(
-    'SELECT nid ' .
-    '  FROM {webform_confirm_email_code} ' .
-    '    WHERE nid = :nid ' .
-    '    AND   sid = :sid ' ,
+  db_query(
+    'DELETE FROM {webform_confirm_email_confirmation_emails} ' .
+    '  WHERE nid = :nid ' .
+    '  AND   sid = :sid ' ,
     array(
       ':nid' => $node->nid,
       ':sid' => $submission->sid,
     )
-  )->fetchField();
-  if ($codes_left_to_be_confirmed == FALSE) {
-    db_query(
-      'DELETE FROM {webform_confirm_email_confirmation_emails} ' .
-      '  WHERE nid = :nid ' .
-      '  AND   sid = :sid ' ,
-      array(
-        ':nid' => $node->nid,
-        ':sid' => $submission->sid,
-      )
-    );
-    // call implementations of hook_email_confirmed
-    module_invoke_all('webform_confirm_email_email_confirmed', $node, $submission);
-    // trigger a rules email confirmed event
-    if (module_exists('rules') == TRUE) {
-      rules_invoke_event('webform_confirm_email_email_confirmed', $node, $submission);
-    }
+  );
+  // Let other modules react to the submission being confirmed.
+  module_invoke_all('webform_confirm_email_email_confirmed', $node, $submission);
+  if (module_exists('rules') == TRUE) {
+    rules_invoke_event('webform_confirm_email_email_confirmed', $node, $submission);
   }
   $redirect_url = db_query(
     'SELECT redirect_url ' .
@@ -428,13 +418,6 @@ function webform_confirm_email_tokens($type, $tokens, array $data = array(), arr
     $eid = (int) $data['webform-email']['eid'];
     if (webform_confirm_email_get_email_type($nid, $eid) == WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST) {
       $code = webform_confirm_email_generate_key($nid, $sid, $eid);
-      $obj = array(
-        'nid'   => $nid,
-        'sid'   => $sid,
-        'eid'   => $eid,
-        'email' => $data['webform-email']['email'],
-      );
-      $obj['datetime'] = REQUEST_TIME;
       $confirm_url = url(
         "node/$nid/sid/$sid/eid/$eid/confirm_email/$code",
         array(
@@ -442,33 +425,6 @@ function webform_confirm_email_tokens($type, $tokens, array $data = array(), arr
           'external' => FALSE,
         )
       );
-
-      $result = db_query(
-        'SELECT nid ' .
-        '  FROM {webform_confirm_email_code} ' .
-        '    WHERE nid = :nid ' .
-        '    AND   sid = :sid ' .
-        '    AND   eid = :eid ' ,
-        array(
-          ':nid' => $nid,
-          ':sid' => $sid,
-          ':eid' => $eid,
-        )
-      )->fetchField();
-
-      if ($result != FALSE) {
-        // mail was resend -> update record
-        drupal_write_record(
-          'webform_confirm_email_code',
-          $obj,
-          array('nid', 'sid', 'eid')
-        );
-      }
-      else {
-        // new mail
-        drupal_write_record('webform_confirm_email_code', $obj);
-      }
-
       if (!empty($data['webform-email']['html'])) {
         $confirm_url = "<a href=\"$confirm_url\">$confirm_url</a>";
       }
