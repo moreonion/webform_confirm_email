@@ -162,6 +162,24 @@ function webform_confirm_email_uninstall() {
 // *****************************************
 
 /**
+ * Set created time for emails that didn’t get one in 7207.
+ */
+function webform_confirm_email_update_7208() {
+  $sql = <<<SQL
+UPDATE {webform_confirm_email_queued_emails} e
+  SET e.created=:now
+WHERE e.created IS NULL
+SQL;
+  db_query($sql, array(':now' => REQUEST_TIME));
+
+  db_change_field('webform_confirm_email_queued_emails', 'created', array(
+    'description' => 'Creation timestamp used for cron job cleanup of confirmation mails that exceeded their storage lifetime set by the admin',
+    'type' => 'int',
+    'not null' => TRUE,
+  ));
+}
+
+/**
  * Completely redo email and code storage.
  */
 function webform_confirm_email_update_7207() {
