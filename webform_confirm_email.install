@@ -28,9 +28,9 @@ function webform_confirm_email_schema() {
         'not null'    => TRUE,
       ),
       'email' => array(
-        'description' => 'The confirmation email that will be send once the confirmation URL is used',
+        'description' => 'The confirmation email that will be sent once the confirmation URL is used',
         'type'        => 'blob',
-        'size'        => 'medium',
+        'size'        => 'big',
         'serialize'   => TRUE,
       ),
       'created' => array(
@@ -162,6 +162,13 @@ function webform_confirm_email_uninstall() {
 // *****************************************
 
 /**
+ * Re-run 7208 for installations that have run it already.
+ */
+function webform_confirm_email_update_7210() {
+  webform_confirm_email_update_7208();
+}
+
+/**
  * Set created time for emails that didn’t get one in 7207.
  */
 function webform_confirm_email_update_7209() {
@@ -184,9 +191,10 @@ SQL;
  */
 function webform_confirm_email_update_7208() {
   db_drop_index('webform_confirm_email_queued_emails', 'email');
-  db_change_field('webform_confirm_email_queued_emails', 'email', 'email',
-    array('type' => 'blob'),
-  );
+  $column['type'] = 'blob';
+  $column['size'] = 'big';
+  $column['description'] = 'The confirmation email that will be sent once the confirmation URL is used';
+  db_change_field('webform_confirm_email_queued_emails', 'email', 'email', $column);
 }
 
 /**
