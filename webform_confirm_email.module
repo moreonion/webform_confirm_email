@@ -383,7 +383,7 @@ function webform_confirm_email_tokens($type, $tokens, array $data = array(), arr
     $eid = (int) $data['webform-email']['eid'];
     if (webform_confirm_email_get_email_type($nid, $eid) == WEBFORM_CONFIRM_EMAIL_CONFIRMATION_REQUEST) {
       $code = webform_confirm_email_generate_key($nid, $sid, $eid);
-      $confirm_url = url(
+      $confirm_url = $confirm_link = url(
         "node/$nid/sid/$sid/eid/$eid/confirm_email/$code",
         array(
           'absolute' => TRUE,
@@ -391,9 +391,10 @@ function webform_confirm_email_tokens($type, $tokens, array $data = array(), arr
         )
       );
       if (!empty($data['webform-email']['html'])) {
-        $confirm_url = "<a href=\"$confirm_url\">$confirm_url</a>";
+        $confirm_link = "<a href=\"$confirm_url\">$confirm_url</a>";
       }
-      $replacements['[submission:confirm_url]'] = $confirm_url;
+      $replacements['[submission:confirm_url:raw]'] = $confirm_url;
+      $replacements['[submission:confirm_url]'] = $confirm_link;
     }
   }
   elseif ($type === 'webform-submission' && !empty($tokens)) {
