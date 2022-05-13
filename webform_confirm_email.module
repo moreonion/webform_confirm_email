@@ -117,12 +117,12 @@ function webform_confirm_email_confirmation_access($node, $submission, $eid, $co
  */
 function webform_confirm_email_confirmation($node, $submission, $eid) {
   db_update('webform_submissions')
-    ->fields(array('confirmed' => 1))
+    ->fields(array('confirmed' => $_SERVER['REQUEST_TIME']))
     ->condition('nid', $node->nid)
     ->condition('sid', $submission->sid)
     ->execute();
-  $first_confirmation = !$submission->confirmed;
-  $submission->confirmed = 1;
+  $first_confirmation = is_null($submission->confirmed);
+  $submission->confirmed = $_SERVER['REQUEST_TIME'];
 
   $messages = db_select('webform_confirm_email_queued_emails', 'e')
     ->fields('e', array('email'))
@@ -640,8 +640,12 @@ function _webform_confirm_email_range_confirmed($value = NULL) {
 function webform_confirm_email_query_webform_download_sids_alter($query) {
   $confirmed = _webform_confirm_email_range_confirmed();
   if (!empty($confirmed)) {
-    $op = $confirmed == WEBFORM_CONFIRM_EMAIL_FILTER_CONFIRMED ? '>' : '=';
-    $query->condition('ws.confirmed', 0, $op);
+    if ($confirmed == WEBFORM_CONFIRM_EMAIL_FILTER_CONFIRMED) {
+      $query->isNotNull('ws.confirmed');
+    }
+    else {
+      $query->isNull('ws.confirmed');
+    }
   }
 }
 
