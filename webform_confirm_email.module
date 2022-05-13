@@ -740,3 +740,40 @@ function webform_confirm_email_results_batch_rows($node, $format = 'delimited', 
   }
   webform_results_batch_rows($node, $format, $options, $context);
 }
+
+/**
+ * Implements hook_webform_results_download_submission_information_info().
+ */
+function webform_confirm_email_webform_results_download_submission_information_info() {
+  return array(
+    'confirmed' => t('Confirmed Time'),
+  );
+}
+
+/**
+ * Implements hook_webform_results_download_submission_information_data().
+ *
+ * This is only used without the patch from #3086038.
+ */
+function webform_confirm_email_webform_results_download_submission_information_data($token, $submission, array $options, $serial_start, $row_count) {
+  if ($token == 'confirmed') {
+    return webform_confirm_email_webform_results_download_submission_information_data_row($submission, $options, $serial_start, $row_count)['confirmed'];
+  }
+}
+
+/**
+ * Implements hook_webform_results_download_submission_information_data_row().
+ *
+ * This hook is invoked directly if
+ * @link https://www.drupal.org/node/3086038 #3086038 @endlink
+ * is applied.
+ */
+function webform_confirm_email_webform_results_download_submission_information_data_row($submission, array $options, $serial_start, $row_count) {
+  $format_date = !empty($options['iso8601_date']) ? function($timestamp) {
+    return format_date($timestamp, 'custom', 'Y-m-d\TH:i:s');
+  } : function($timestamp) {
+    return format_date($timestamp, 'short');
+  };
+  $data['confirmed'] = $submission->confirmed ? $format_date($submission->confirmed) : 'not confirmed.';
+  return $data;
+}
