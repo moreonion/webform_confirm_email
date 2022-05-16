@@ -769,11 +769,12 @@ function webform_confirm_email_webform_results_download_submission_information_d
  * is applied.
  */
 function webform_confirm_email_webform_results_download_submission_information_data_row($submission, array $options, $serial_start, $row_count) {
-  $format_date = !empty($options['iso8601_date']) ? function($timestamp) {
+  $format_date = !empty($options['iso8601_date']) ? function ($timestamp) {
     return format_date($timestamp, 'custom', 'Y-m-d\TH:i:s');
-  } : function($timestamp) {
+  } : function ($timestamp) {
     return format_date($timestamp, 'short');
   };
-  $data['confirmed'] = $submission->confirmed ? $format_date($submission->confirmed) : 'not confirmed.';
+  $data['confirmed'] = $submission->confirmed ? $format_date($submission->confirmed) : '';
   return $data;
 }
+
