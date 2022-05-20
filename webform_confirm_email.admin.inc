@@ -547,9 +547,9 @@ function theme_webform_confirm_email_emails_form($variables) {
 
   $output = '';
   foreach(array(
-      'emails'               => 'Standard emails (always send)',
-      'confirmation_request' => 'Confirmation request emails (always send)',
-      'confirmation'         => 'Confirmation emails (only send when the confirmation URL is used)') as $email_type => $title) {
+      'emails'               => t('Standard emails (always send)'),
+      'confirmation_request' => t('Confirmation request emails (always send)'),
+      'confirmation'         => t('Confirmation emails (only send when the confirmation URL is used)')) as $email_type => $title) {
     $rows = array();
 
     $eids = element_children($form[$email_type]);
