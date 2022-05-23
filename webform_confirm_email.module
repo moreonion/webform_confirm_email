@@ -751,6 +751,25 @@ function webform_confirm_email_webform_results_download_submission_information_i
 }
 
 /**
+ * Implements hook_webform_results_download_submission_information_info_alter().
+ */
+function webform_confirm_email_webform_results_download_submission_information_info_alter(array &$submission_information) {
+  // Move Confirmed Time column after Modified Time column.
+  if (isset($submission_information['webform_modified_time']) && isset($submission_information['confirmed'])) {
+    $confirmed = $submission_information['confirmed'];
+    unset($submission_information['confirmed']);
+    $new_info = [];
+    foreach ($submission_information as $column => $label) {
+      $new_info[$column] = $label;
+      if ($column == 'webform_modified_time') {
+        $new_info['confirmed'] = $confirmed;
+      }
+    }
+    $submission_information = $new_info;
+  }
+}
+
+/**
  * Implements hook_webform_results_download_submission_information_data().
  *
  * This is only used without the patch from #3086038.
