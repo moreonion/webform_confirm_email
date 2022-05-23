@@ -746,7 +746,7 @@ function webform_confirm_email_results_batch_rows($node, $format = 'delimited', 
  */
 function webform_confirm_email_webform_results_download_submission_information_info() {
   return array(
-    'confirmed' => t('Confirmed Time'),
+    'webform_confirm_email_confirmed' => t('Confirmed Time'),
   );
 }
 
@@ -755,14 +755,14 @@ function webform_confirm_email_webform_results_download_submission_information_i
  */
 function webform_confirm_email_webform_results_download_submission_information_info_alter(array &$submission_information) {
   // Move Confirmed Time column after Modified Time column.
-  if (isset($submission_information['webform_modified_time']) && isset($submission_information['confirmed'])) {
-    $confirmed = $submission_information['confirmed'];
-    unset($submission_information['confirmed']);
+  if (isset($submission_information['webform_modified_time']) && isset($submission_information['webform_confirm_email_confirmed'])) {
+    $confirmed = $submission_information['webform_confirm_email_confirmed'];
+    unset($submission_information['webform_confirm_email_confirmed']);
     $new_info = [];
     foreach ($submission_information as $column => $label) {
       $new_info[$column] = $label;
       if ($column == 'webform_modified_time') {
-        $new_info['confirmed'] = $confirmed;
+        $new_info['webform_confirm_email_confirmed'] = $confirmed;
       }
     }
     $submission_information = $new_info;
@@ -775,8 +775,8 @@ function webform_confirm_email_webform_results_download_submission_information_i
  * This is only used without the patch from #3086038.
  */
 function webform_confirm_email_webform_results_download_submission_information_data($token, $submission, array $options, $serial_start, $row_count) {
-  if ($token == 'confirmed') {
-    return webform_confirm_email_webform_results_download_submission_information_data_row($submission, $options, $serial_start, $row_count)['confirmed'];
+  if ($token == 'webform_confirm_email_confirmed') {
+    return webform_confirm_email_webform_results_download_submission_information_data_row($submission, $options, $serial_start, $row_count)['webform_confirm_email_confirmed'];
   }
 }
 
@@ -793,7 +793,7 @@ function webform_confirm_email_webform_results_download_submission_information_d
   } : function ($timestamp) {
     return format_date($timestamp, 'short');
   };
-  $data['confirmed'] = $submission->confirmed ? $format_date($submission->confirmed) : '';
+  $data['webform_confirm_email_confirmed'] = $submission->confirmed ? $format_date($submission->confirmed) : '';
   return $data;
 }
 
