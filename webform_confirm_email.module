@@ -375,9 +375,7 @@ function webform_confirm_email_tokens($type, $tokens, array $data = array(), arr
     $language_code = NULL;
   }
   $node = isset($data['node']) ? $data['node'] : node_load($submission->nid);
-  if (   $type === 'submission'
-      && isset($tokens['confirm_url'])
-      && !empty($data['webform-email'])) {
+  if ($type === 'submission' && !empty($data['webform-email'])) {
     $nid = (int) ($node->nid);
     $sid = (int) ($submission->sid);
     $eid = (int) $data['webform-email']['eid'];
